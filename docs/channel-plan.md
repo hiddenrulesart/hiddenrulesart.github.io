@@ -35,14 +35,46 @@ website where they can play with the piece themselves.
 (e.g. "1000 pendulums, 0.0000001° apart"). Vertical 2160×3840. Shorts are the
 growth engine; they feed the long videos.
 
-## Idea backlog
-### Chaos theory series ("I programmed chaos theory")
-- [x] **1000 double pendulums** — start almost identical, explode into chaos. `pieces/double-pendulum`
-- [ ] **Lorenz attractor** — glowing particle trails; viewers rotate in 3D
-- [ ] **Three-body problem** — viewers drop planets, watch them fling each other
-- [ ] **Logistic map / bifurcation diagram** — infinite zoom into the fractal
+## Curriculum: "The Hidden Rules of Nature"
+Not random pieces: a connected series. People click for a **question they already
+have**; the art is the reward.
 
-### Later
+**Every video:**
+1. Opens on a question people already wonder about, over the most striking visual.
+2. Answers it by building the piece on screen. The process (attempts, bugs, "aha")
+   is the story, Sebastian Lague style.
+3. Ends on a cliffhanger that sets up the next video (end screen → next episode).
+
+Each season has its own arc, and each finale leads into the next season. The website
+is "the lab": every piece from the series, playable.
+
+### Season 1: Chaos ("Why can't we predict the future?")
+- [x] **1. Double pendulum.** "Why can't we predict the future?" Tiny differences explode (butterfly effect). `pieces/double-pendulum`
+  - Title: "I programmed 1,000 pendulums. Then chaos happened."
+  - Hook: the white pendulum splitting into a rainbow.
+  - Cliffhanger: "This is why we can't forecast weather past 10 days. And in 1961, one man found out by accident…"
+- [ ] **2. Lorenz attractor.** "Why weather forecasts fail after 10 days." Lorenz rounded one number in a weather sim in 1961 and discovered chaos. Reveal: chaos has a beautiful shape. Glowing particle trails, rotate in 3D.
+- [ ] **3. Logistic map / bifurcation.** "How order turns into chaos." Reveal: 4.669 (Feigenbaum constant) appears in every chaotic system. Infinite zoom.
+- [ ] **4. Three-body problem.** "Why can't we predict three planets?" Viewers drop planets and watch them fling each other.
+  - Season finale: chaos isn't noise. It has infinite self-similar structure, which leads into fractals.
+
+### Season 2: Infinity / Fractals
+- [ ] Mandelbrot set (infinite zoom)
+- [ ] Coastline paradox: "How long is Britain's coast?"
+- [ ] Trees and ferns from simple rules (L-systems, Barnsley fern)
+
+### Season 3: Emergence ("How does complexity come from simple rules?")
+- [ ] Conway's Game of Life
+- [ ] Flocking birds (boids)
+- [ ] Slime mold networks (Physarum)
+- [ ] Turing patterns / reaction-diffusion: "How the zebra got its stripes"
+
+### Season 4: Waves
+- [ ] Fourier epicycles drawing pictures
+- [ ] Chladni / standing-wave patterns
+- [ ] Wave interference
+
+### Unsorted ideas
 - (add ideas here)
 
 ## Status log
