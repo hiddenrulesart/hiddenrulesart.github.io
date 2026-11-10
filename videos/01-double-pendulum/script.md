@@ -1,15 +1,15 @@
 # Episode 1: "I programmed 1,000 pendulums. Then chaos happened."
 
 Season 1 (Chaos), episode 1. Target length ~5 min (~750 words at ~150 wpm).
-Status: DRAFT v1, awaiting review.
+Status: DRAFT v1. Scenes 1–3 (first minute) are built: `scenes/`, narration in `voice.json`, build with `build.mjs`.
 
 Each scene: **VISUAL** (what's on screen, all rendered from code) and **VO** (voiceover).
 
 ---
 
 ### 1. Hook (0:00–0:08)
-**VISUAL:** 1,000 pendulums moving as one white line, then splitting into a rainbow. Text: "1,000 pendulums · 0.00001° apart".
-**VO:** These are a thousand pendulums. They all started in almost exactly the same place, less than a millionth of a degree apart. Watch what happens.
+**VISUAL:** 1,000 pendulums moving as one white line, then splitting into a rainbow. Text: "1,000 pendulums / all starting within 0.00001° of each other".
+**VO:** These are a thousand pendulums. They all started in almost exactly the same place, within a hundred-thousandth of a degree. Watch what happens.
 
 ### 2. The question (0:08–0:30)
 **VISUAL:** The rainbow dissolves into full chaos. Fade to title card.

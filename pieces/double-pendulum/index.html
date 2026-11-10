@@ -69,6 +69,7 @@
 <div id="toast"></div>
 
 <script src="sim.js"></script>
+<script src="render.js"></script>
 <script>
 (() => {
   'use strict';
@@ -94,10 +95,6 @@
   const ctx = canvas.getContext('2d', { alpha: false });
   let W = 0, H = 0, sim, paused = false, holding = false;
 
-  // ---- colors: rainbow by index, so neighbours start the same colour and visibly separate.
-  const BUCKETS = 96;
-  const bucketColor = (b, alpha) => `hsla(${(b / BUCKETS) * 330 + 200},95%,62%,${alpha})`;
-
   function resize() {
     if (P.record) { W = P.w; H = P.h; canvas.width = W; canvas.height = H; }
     else {
@@ -120,43 +117,8 @@
     const L = S * 0.22, ox = W / 2, oy = H / 2;
     const lw = Math.max(1, S / 900);
 
-    // fade previous frame -> trails
-    ctx.globalCompositeOperation = 'source-over';
-    ctx.fillStyle = `rgba(5,5,10,${1 - P.trail})`;
-    ctx.fillRect(0, 0, W, H);
-
-    // additive blending: overlapping pendulums glow white, then split into a rainbow
-    ctx.globalCompositeOperation = 'lighter';
-    ctx.lineWidth = lw; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-    const n = sim.n, th1 = sim.th1, th2 = sim.th2;
-    const alpha = n === 1 ? 1 : P.glow;
-    const per = Math.ceil(n / BUCKETS);
-    // Inner arms all share the pivot, so they pile up into a white disk once chaotic;
-    // draw them dimmer and let the outer arms carry the picture.
-    const INNER = n === 1 ? 1 : 0.3;
-    for (let b = 0; b * per < n; b++) {
-      const end = Math.min(n, (b + 1) * per);
-      const col = Math.floor((b * per / n) * BUCKETS);
-      ctx.beginPath();
-      for (let i = b * per; i < end; i++) {
-        ctx.moveTo(ox, oy); ctx.lineTo(ox + L * Math.sin(th1[i]), oy + L * Math.cos(th1[i]));
-      }
-      ctx.strokeStyle = bucketColor(col, alpha * INNER);
-      ctx.stroke();
-      ctx.beginPath();
-      for (let i = b * per; i < end; i++) {
-        const x1 = ox + L * Math.sin(th1[i]), y1 = oy + L * Math.cos(th1[i]);
-        ctx.moveTo(x1, y1); ctx.lineTo(x1 + L * Math.sin(th2[i]), y1 + L * Math.cos(th2[i]));
-      }
-      ctx.strokeStyle = bucketColor(col, alpha);
-      ctx.stroke();
-    }
-
-    // pivot
-    ctx.globalCompositeOperation = 'source-over';
-    ctx.fillStyle = '#ffffff';
-    ctx.beginPath(); ctx.arc(ox, oy, lw * 3, 0, Math.PI * 2); ctx.fill();
-
+    PendulumRender.fade(ctx, W, H, P.trail);
+    PendulumRender.drawEnsemble(ctx, sim, { ox, oy, L, lw, glow: P.glow });
     if (P.overlay) drawOverlay(S);
   }
 

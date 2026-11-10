@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Simple pendulum</title></head>
+<body>
+<script src="../../../lib/scene.js"></script>
+<script>
+// Scene 3: one simple pendulum swinging, with a graph of its angle over time.
+// A dashed line runs ahead of the pen: the future is perfectly predictable.
+Scene.run(({ ctx, W, H, S, num, fps }) => {
+  const duration = num('duration', 25);
+  const G = 9.81, amp = num('amp', 28) * Math.PI / 180;
+
+  // Precompute the whole motion (RK4 on θ'' = -g sin θ, 1 m rod), plus extra for the look-ahead.
+  const N = Math.ceil((duration + 12) * fps) + 2, sub = 8, h = 1 / fps / sub;
+  const theta = new Float64Array(N);
+  let th = amp, om = 0;
+  const acc = x => -G * Math.sin(x);
+  for (let f = 0; f < N; f++) {
+    theta[f] = th;
+    for (let s = 0; s < sub; s++) {
+      const k1 = acc(th), k2 = acc(th + 0.5 * h * om), k3 = acc(th + 0.5 * h * (om + 0.5 * h * k1)), k4 = acc(th + h * (om + 0.5 * h * k2));
+      const th2 = th + (h / 6) * (om + 2 * (om + 0.5 * h * k1) + 2 * (om + 0.5 * h * k2) + (om + h * k3));
+      om += (h / 6) * (k1 + 2 * k2 + 2 * k3 + k4); th = th2;
+    }
+  }
+
+  const px = W * 0.25, py = H * 0.22, L = H * 0.48;  // pendulum
+  const gx0 = W * 0.47, gx1 = W * 0.93, gy = py + L * 0.62, gA = H * 0.22; // graph area
+  const SPAN = 8;                                       // seconds visible across the graph
+  const pps = (gx1 - gx0) / SPAN;                       // pixels per second
+  const lw = Math.max(1.5, S / 500);
+  const ACCENT = 'hsl(265,95%,70%)';
+
+  return {
+    duration,
+    frame(t) {
+      const f = Math.min(N - 1, Math.round(t * fps));
+      const fadeIn = Scene.smooth(t / 0.8);
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.fillStyle = '#05050a'; ctx.fillRect(0, 0, W, H);
+      ctx.globalAlpha = fadeIn;
+
+      // faint arc the bob travels on
+      ctx.strokeStyle = 'rgba(255,255,255,0.12)'; ctx.lineWidth = lw; ctx.setLineDash([lw * 2, lw * 4]);
+      ctx.beginPath(); ctx.arc(px, py, L, Math.PI / 2 - amp, Math.PI / 2 + amp); ctx.stroke();
+      ctx.setLineDash([]);
+
+      // pendulum
+      const a = theta[f], bx = px + L * Math.sin(a), by = py + L * Math.cos(a);
+      ctx.strokeStyle = 'rgba(255,255,255,0.85)'; ctx.lineWidth = lw * 1.6; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(bx, by); ctx.stroke();
+      ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(px, py, lw * 2.5, 0, Math.PI * 2); ctx.fill();
+      const glow = ctx.createRadialGradient(bx, by, 0, bx, by, S * 0.06);
+      glow.addColorStop(0, 'hsla(265,95%,70%,0.55)'); glow.addColorStop(1, 'hsla(265,95%,70%,0)');
+      ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(bx, by, S * 0.06, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = ACCENT; ctx.beginPath(); ctx.arc(bx, by, S * 0.018, 0, Math.PI * 2); ctx.fill();
+
+      // graph: pen moves right until 55% across, then the paper scrolls
+      const penX = gx0 + Math.min(t, SPAN * 0.55) * pps;
+      const tAt = x => t + (x - penX) / pps;
+      const yOf = tt => gy - (theta[Math.max(0, Math.min(N - 1, Math.round(tt * fps)))] / amp) * gA;
+      ctx.strokeStyle = 'rgba(255,255,255,0.15)'; ctx.lineWidth = Math.max(1, lw * 0.6);
+      ctx.beginPath(); ctx.moveTo(gx0, gy); ctx.lineTo(gx1, gy); ctx.stroke();
+      Scene.text(ctx, 'angle', gx0 - S * 0.012, gy - gA, { size: S * 0.022, weight: 400, align: 'right', color: 'rgba(255,255,255,0.45)', alpha: fadeIn });
+      Scene.text(ctx, 'time →', gx1, gy + gA + S * 0.04, { size: S * 0.022, weight: 400, align: 'right', color: 'rgba(255,255,255,0.45)', alpha: fadeIn });
+
+      // past: solid
+      ctx.strokeStyle = ACCENT; ctx.lineWidth = lw * 1.4; ctx.beginPath();
+      const x0 = Math.max(gx0, penX - t * pps);
+      ctx.moveTo(x0, yOf(tAt(x0)));
+      for (let x = x0 + 2; x <= penX; x += 2) ctx.lineTo(x, yOf(tAt(x)));
+      ctx.lineTo(penX, yOf(t));
+      ctx.stroke();
+      // future: dashed, fades in after a few seconds ("I can tell you where it'll be")
+      const fut = Scene.smooth((t - num('futureAt', 9)) / 1.5);
+      if (fut > 0) {
+        ctx.save(); ctx.globalAlpha = fadeIn * fut * 0.6; ctx.setLineDash([lw * 3, lw * 3]);
+        ctx.strokeStyle = ACCENT; ctx.lineWidth = lw; ctx.beginPath();
+        for (let x = penX; x <= gx1; x += 2) { const y = yOf(tAt(x)); x === penX ? ctx.moveTo(x, y) : ctx.lineTo(x, y); }
+        ctx.stroke(); ctx.restore();
+      }
+      // pen + link from bob height to pen
+      ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(penX, yOf(t), lw * 2.6, 0, Math.PI * 2); ctx.fill();
+      ctx.globalAlpha = 1;
+    },
+  };
+});
+</script>
+</body></html>

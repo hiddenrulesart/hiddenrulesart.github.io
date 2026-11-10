@@ -4,7 +4,7 @@
 // perfectly smooth regardless of how slow rendering is.
 //
 // Usage:
-//   node tools/record.mjs <piece> [--w 3840] [--h 2160] [--fps 60] [--seconds 30]
+//   node tools/record.mjs <piece | path/to/scene.html> [--w 3840] [--h 2160] [--fps 60] [--seconds 30]
 //        [--out renders/<piece>.mp4] [--jpeg] [any other --key value is passed to the piece]
 // Examples:
 //   node tools/record.mjs double-pendulum --seconds 40
@@ -34,7 +34,7 @@ for (let i = 1; i < argv.length; i++) {
   if (k in opts) opts[k] = +v; else pass[k] = v;
 }
 const jpeg = 'jpeg' in pass; delete pass.jpeg;
-const out = pass.out || path.join('renders', `${piece}-${opts.w}x${opts.h}-${Date.now()}.mp4`); delete pass.out;
+const out = pass.out || path.join('renders', `${path.basename(piece, '.html')}-${opts.w}x${opts.h}-${Date.now()}.mp4`); delete pass.out;
 fs.mkdirSync(path.dirname(path.resolve(out)), { recursive: true });
 const totalFrames = Math.round(opts.seconds * opts.fps);
 
@@ -51,7 +51,9 @@ await new Promise(r => server.listen(0, '127.0.0.1', r));
 const port = server.address().port;
 
 const query = new URLSearchParams({ ...pass, record: 1, w: opts.w, h: opts.h, fps: opts.fps });
-const url = `http://127.0.0.1:${port}/pieces/${piece}/?${query}`;
+// <piece> is a name under pieces/ or a path to any page with a window.__recorder (e.g. a video scene)
+const pagePath = piece.includes('/') ? piece.replace(/^\.?\//, '') : `pieces/${piece}/`;
+const url = `http://127.0.0.1:${port}/${pagePath}?${query}`;
 console.log(`Rendering ${totalFrames} frames (${opts.seconds}s @ ${opts.fps}fps, ${opts.w}x${opts.h})\n  ${url}\n  -> ${out}`);
 
 // ---- ffmpeg: frames in on stdin, high-quality H.264 out (YouTube re-encodes anyway)
@@ -77,7 +79,7 @@ try {
     if (!ff.stdin.write(buf)) await new Promise(r => ff.stdin.once('drain', r));
     if (f % 30 === 0 || f === totalFrames - 1) {
       const el = (Date.now() - t0) / 1000, eta = el / (f + 1) * (totalFrames - f - 1);
-      process.stdout.write(`\r  frame ${f + 1}/${totalFrames}  ${(100 * (f + 1) / totalFrames).toFixed(1)}%  eta ${eta.toFixed(0)}s   `);
+      if (process.stdout.isTTY) process.stdout.write(`\r  frame ${f + 1}/${totalFrames}  ${(100 * (f + 1) / totalFrames).toFixed(1)}%  eta ${eta.toFixed(0)}s   `);
     }
   }
   ff.stdin.end();

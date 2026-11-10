@@ -1,0 +1,17 @@
+{
+  "_note": "Voiceover lines, one entry per segment. Edit the text and re-run build.mjs; unchanged lines are reused from cache (no API cost).",
+  "segments": [
+    {
+      "id": "hook",
+      "text": "These are a thousand pendulums. They all started in almost exactly the same place, within a hundred-thousandth of a degree. Watch what happens."
+    },
+    {
+      "id": "question",
+      "text": "A few seconds later, they have nothing in common. This is chaos. And it's the reason your weather app can't tell you if it'll rain two weeks from now. So I wanted to see it for myself. I programmed it from scratch, and it turned out stranger, and more beautiful, than I expected."
+    },
+    {
+      "id": "simple",
+      "text": "Let's start simple. One pendulum: a weight on a rod. Physics has understood this for four hundred years. Give it a push, and it swings back and forth, on the same path, forever. If I know where it is now, I can tell you exactly where it'll be in a thousand years. Predictable. Boring."
+    }
+  ]
+}
