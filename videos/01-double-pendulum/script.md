@@ -34,7 +34,7 @@ Each scene: **VISUAL** (what's on screen, all rendered from code) and **VO** (vo
 
 ### 7. One thousand pendulums (3:10–3:50)
 **VISUAL:** The main piece. 1,000 pendulums, rainbow-colored by starting position, splitting apart. Full showcase with trails.
-**VO:** So I did this. A thousand pendulums, each a tiny fraction of a degree apart from its neighbor. The whole group starts within a hundred-thousandth of a degree, a difference smaller than an atom on a ruler. For ten seconds they move as one. Then the rainbow appears: the colors are the tiny differences, finally becoming visible. And then it's chaos.
+**VO:** So I did this. A thousand pendulums, each a tiny fraction of a degree apart from its neighbor. The whole group starts within a hundred-thousandth of a degree, so close that the tips are less than the width of a virus apart. For ten seconds they move as one. Then the rainbow appears: the colors are the tiny differences, finally becoming visible. And then it's chaos.
 
 ### 8. Why: exponential growth (3:50–4:30)
 **VISUAL:** A graph of the gap between pendulums over time, log scale. It's a straight line going up: the gap doubles at a steady rate. Markers: "atom-sized", "hair-width", "completely different".
