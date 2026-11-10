@@ -46,4 +46,4 @@ growth engine; they feed the long videos.
 - (add ideas here)
 
 ## Status log
-- 2026-11-10: Plan written; double pendulum piece built with interactive + record modes.
+- 2026-11-10: Plan written. Double pendulum piece built (interactive + record mode, tools/record.mjs). Defaults 150°/150°, spread 1e-5° → chaos at ~11s; 1e-7° → ~17s. Next: record a real video, then Lorenz attractor.

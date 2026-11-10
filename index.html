@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Generative Art</title>
+<style>
+  :root { --bg: #05050a; --fg: #e8e8f0; --muted: #8a8aa0; --card: #11111c; --line: rgba(255,255,255,.1); }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.5 system-ui, -apple-system, sans-serif; }
+  main { max-width: 880px; margin: 0 auto; padding: 48px 16px; }
+  h1 { font-size: 32px; margin: 0 0 4px; } p { color: var(--muted); margin: 0 0 32px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px; }
+  a.card { display: block; padding: 20px; background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+    color: inherit; text-decoration: none; transition: border-color .2s; }
+  a.card:hover { border-color: rgba(255,255,255,.35); }
+  a.card h2 { font-size: 18px; margin: 0 0 6px; } a.card span { color: var(--muted); font-size: 14px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Generative Art</h1>
+  <p>Math and physics, made into art you can play with.</p>
+  <div class="grid">
+    <a class="card" href="pieces/double-pendulum/"><h2>Double Pendulum Chaos</h2>
+      <span>1,000 pendulums start a hair apart. Watch them split into a rainbow.</span></a>
+  </div>
+</main>
+</body>
+</html>

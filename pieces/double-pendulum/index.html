@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Double Pendulum Chaos</title>
+<style>
+  :root { --bg: #05050a; --fg: #e8e8f0; --muted: #8a8aa0; --panel: rgba(16,16,28,.82); --line: rgba(255,255,255,.12); --accent: #9f8cff; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg); overflow: hidden;
+    font: 14px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  canvas { display: block; width: 100vw; height: 100vh; touch-action: none; cursor: grab; }
+  canvas:active { cursor: grabbing; }
+  #panel { position: fixed; top: 16px; right: 16px; width: 260px; max-width: calc(100vw - 32px);
+    background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px;
+    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+  #panel.hidden { display: none; }
+  #panel h1 { font-size: 15px; margin: 0 0 2px; font-weight: 600; }
+  #panel p.sub { margin: 0 0 12px; color: var(--muted); font-size: 12px; }
+  label { display: block; margin: 10px 0 2px; font-size: 12px; color: var(--muted); }
+  label output { float: right; color: var(--fg); font-variant-numeric: tabular-nums; }
+  input[type=range] { width: 100%; accent-color: var(--accent); }
+  .row { display: flex; gap: 6px; margin-top: 14px; flex-wrap: wrap; }
+  button { flex: 1; background: rgba(255,255,255,.08); color: var(--fg); border: 1px solid var(--line);
+    border-radius: 8px; padding: 7px 8px; font: inherit; font-size: 12px; cursor: pointer; }
+  button:hover { background: rgba(255,255,255,.16); }
+  .hint { margin-top: 12px; color: var(--muted); font-size: 11px; }
+  #show { position: fixed; top: 16px; right: 16px; display: none; }
+  #show.visible { display: block; }
+  #toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--panel);
+    border: 1px solid var(--line); padding: 8px 14px; border-radius: 8px; opacity: 0; transition: opacity .3s; pointer-events: none; }
+  body.record #panel, body.record #show, body.record #toast { display: none !important; }
+  body.record canvas { width: auto; height: auto; cursor: default; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<div id="panel">
+  <h1>Double Pendulum Chaos</h1>
+  <p class="sub">Pendulums that start almost identically. Drag on the canvas to lift them, then let go.</p>
+
+  <label>Pendulums <output id="nOut"></output></label>
+  <input id="n" type="range" min="1" max="5" step="1">
+
+  <label>Starting difference <output id="spreadOut"></output></label>
+  <input id="spread" type="range" min="-12" max="0" step="1">
+
+  <label>Trails <output id="trailOut"></output></label>
+  <input id="trail" type="range" min="0" max="0.95" step="0.05">
+
+  <label>Brightness <output id="glowOut"></output></label>
+  <input id="glow" type="range" min="0.02" max="1" step="0.01">
+
+  <label>Speed <output id="speedOut"></output></label>
+  <input id="speed" type="range" min="0.1" max="3" step="0.1">
+
+  <div class="row">
+    <button id="restart">Restart</button>
+    <button id="pause">Pause</button>
+  </div>
+  <div class="row">
+    <button id="share">Copy link</button>
+    <button id="hide">Hide</button>
+  </div>
+  <div class="hint">Space pause · R restart · H hide panel · O text overlay</div>
+</div>
+<button id="show">Controls</button>
+<div id="toast"></div>
+
+<script src="sim.js"></script>
+<script>
+(() => {
+  'use strict';
+  const COUNTS = [1, 10, 100, 1000, 3000, 10000];
+
+  // ---- parameters (URL-driven so links + the recorder reproduce a scene exactly)
+  const q = new URLSearchParams(location.search);
+  const num = (k, d) => (q.has(k) && !isNaN(+q.get(k)) ? +q.get(k) : d);
+  const P = {
+    n: num('n', 1000),
+    a1: num('a1', 150), a2: num('a2', 150),   // starting angles, degrees from straight down
+    spread: num('spread', 1e-5),              // total starting difference across all pendulums, degrees
+    trail: num('trail', 0.6),                 // 0 = no trails, 0.95 = long trails
+    glow: num('glow', 0.35),                  // line opacity
+    speed: num('speed', 1),
+    overlay: num('overlay', 0),
+    record: num('record', 0),
+    w: num('w', 3840), h: num('h', 2160), fps: num('fps', 60),
+  };
+  const SUBSTEPS = 8;
+
+  const canvas = document.getElementById('c');
+  const ctx = canvas.getContext('2d', { alpha: false });
+  let W = 0, H = 0, sim, paused = false, holding = false;
+
+  // ---- colors: rainbow by index, so neighbours start the same colour and visibly separate.
+  const BUCKETS = 96;
+  const bucketColor = (b, alpha) => `hsla(${(b / BUCKETS) * 330 + 200},95%,62%,${alpha})`;
+
+  function resize() {
+    if (P.record) { W = P.w; H = P.h; canvas.width = W; canvas.height = H; }
+    else {
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      W = Math.round(innerWidth * dpr); H = Math.round(innerHeight * dpr);
+      canvas.width = W; canvas.height = H;
+    }
+    ctx.fillStyle = '#05050a'; ctx.fillRect(0, 0, W, H);
+  }
+
+  function restart() {
+    if (!sim || sim.n !== P.n) sim = DoublePendulumSim.createSim({ n: P.n });
+    sim.reset(P.a1, P.a2, P.spread);
+    ctx.fillStyle = '#05050a'; ctx.fillRect(0, 0, W, H);
+  }
+
+  // ---- drawing
+  function draw() {
+    const S = Math.min(W, H);
+    const L = S * 0.22, ox = W / 2, oy = H / 2;
+    const lw = Math.max(1, S / 900);
+
+    // fade previous frame -> trails
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.fillStyle = `rgba(5,5,10,${1 - P.trail})`;
+    ctx.fillRect(0, 0, W, H);
+
+    // additive blending: overlapping pendulums glow white, then split into a rainbow
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.lineWidth = lw; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    const n = sim.n, th1 = sim.th1, th2 = sim.th2;
+    const alpha = n === 1 ? 1 : P.glow;
+    const per = Math.ceil(n / BUCKETS);
+    // Inner arms all share the pivot, so they pile up into a white disk once chaotic;
+    // draw them dimmer and let the outer arms carry the picture.
+    const INNER = n === 1 ? 1 : 0.3;
+    for (let b = 0; b * per < n; b++) {
+      const end = Math.min(n, (b + 1) * per);
+      const col = Math.floor((b * per / n) * BUCKETS);
+      ctx.beginPath();
+      for (let i = b * per; i < end; i++) {
+        ctx.moveTo(ox, oy); ctx.lineTo(ox + L * Math.sin(th1[i]), oy + L * Math.cos(th1[i]));
+      }
+      ctx.strokeStyle = bucketColor(col, alpha * INNER);
+      ctx.stroke();
+      ctx.beginPath();
+      for (let i = b * per; i < end; i++) {
+        const x1 = ox + L * Math.sin(th1[i]), y1 = oy + L * Math.cos(th1[i]);
+        ctx.moveTo(x1, y1); ctx.lineTo(x1 + L * Math.sin(th2[i]), y1 + L * Math.cos(th2[i]));
+      }
+      ctx.strokeStyle = bucketColor(col, alpha);
+      ctx.stroke();
+    }
+
+    // pivot
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath(); ctx.arc(ox, oy, lw * 3, 0, Math.PI * 2); ctx.fill();
+
+    if (P.overlay) drawOverlay(S);
+  }
+
+  function fmtDeg(d) {
+    if (d === 0) return '0°';
+    if (d >= 0.01) return `${+d.toPrecision(3)}°`;
+    return `${d.toFixed(Math.min(20, Math.ceil(-Math.log10(d))))}°`;
+  }
+
+  function drawOverlay(S) {
+    ctx.fillStyle = 'rgba(255,255,255,0.92)';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    ctx.font = `600 ${Math.round(S * 0.045)}px system-ui, -apple-system, sans-serif`;
+    ctx.fillText(`${sim.n.toLocaleString()} double pendulums`, W / 2, H * 0.06);
+    ctx.fillStyle = 'rgba(255,255,255,0.65)';
+    ctx.font = `400 ${Math.round(S * 0.028)}px system-ui, -apple-system, sans-serif`;
+    ctx.fillText(`starting ${fmtDeg(P.spread)} apart`, W / 2, H * 0.06 + S * 0.06);
+    ctx.textBaseline = 'bottom';
+    ctx.font = `400 ${Math.round(S * 0.026)}px ui-monospace, Menlo, monospace`;
+    ctx.fillText(`t = ${sim.time.toFixed(1)} s`, W / 2, H * 0.95);
+  }
+
+  function frame(dt) {
+    if (!holding) sim.step(dt * P.speed, SUBSTEPS);
+    draw();
+  }
+
+  // ---- record mode: no animation loop; the recorder calls frame() once per video frame
+  if (P.record) {
+    document.body.classList.add('record');
+    resize(); restart(); draw();
+    window.__recorder = {
+      ready: true, width: W, height: H, fps: P.fps,
+      frame(type = 'image/png', quality) { frame(1 / P.fps); return canvas.toDataURL(type, quality); },
+    };
+    return;
+  }
+
+  // ---- interactive mode
+  addEventListener('resize', resize);
+  resize(); restart();
+  let last = performance.now();
+  function loop(now) {
+    const dt = Math.min(0.05, (now - last) / 1000); last = now; // clamp so tab-switching doesn't jump
+    if (!paused) frame(dt); else draw();
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+
+  // drag to lift the pendulums: both arms point at the cursor
+  function aim(e) {
+    const r = canvas.getBoundingClientRect();
+    const x = (e.clientX - r.left) / r.width * W - W / 2;
+    const y = (e.clientY - r.top) / r.height * H - H / 2;
+    const deg = Math.atan2(x, y) * 180 / Math.PI;
+    P.a1 = P.a2 = Math.round(deg * 10) / 10;
+    restart();
+  }
+  canvas.addEventListener('pointerdown', e => { holding = true; canvas.setPointerCapture(e.pointerId); aim(e); });
+  canvas.addEventListener('pointermove', e => { if (holding) aim(e); });
+  const release = () => { if (holding) { holding = false; syncUrl(); } };
+  canvas.addEventListener('pointerup', release);
+  canvas.addEventListener('pointercancel', release);
+
+  // ---- controls
+  const $ = id => document.getElementById(id);
+  const panel = $('panel'), show = $('show');
+  function bind(id, toUi, fromUi, fmt, onChange) {
+    const el = $(id), out = $(id + 'Out');
+    el.value = toUi(P[id]); out.textContent = fmt(P[id]);
+    el.addEventListener('input', () => { P[id] = fromUi(+el.value); out.textContent = fmt(P[id]); onChange && onChange(); syncUrl(); });
+  }
+  const nearestCount = v => COUNTS.reduce((best, c, i) => Math.abs(c - v) < Math.abs(COUNTS[best] - v) ? i : best, 0);
+  $('n').max = COUNTS.length - 1;
+  bind('n', nearestCount, i => COUNTS[i], v => v.toLocaleString(), restart);
+  bind('spread', v => Math.round(Math.log10(v)), v => 10 ** v, fmtDeg, restart);
+  bind('trail', v => v, v => v, v => v.toFixed(2));
+  bind('glow', v => v, v => v, v => v.toFixed(2));
+  bind('speed', v => v, v => v, v => v.toFixed(1) + '×');
+
+  const togglePause = () => { paused = !paused; $('pause').textContent = paused ? 'Play' : 'Pause'; };
+  const toggleHide = () => { panel.classList.toggle('hidden'); show.classList.toggle('visible', panel.classList.contains('hidden')); };
+  $('restart').onclick = restart;
+  $('pause').onclick = togglePause;
+  $('hide').onclick = toggleHide;
+  show.onclick = toggleHide;
+  $('share').onclick = async () => {
+    syncUrl();
+    try { await navigator.clipboard.writeText(location.href); toast('Link copied'); }
+    catch { toast('Copy the address bar to share'); }
+  };
+  addEventListener('keydown', e => {
+    if (e.target.tagName === 'INPUT') return;
+    if (e.code === 'Space') { e.preventDefault(); togglePause(); }
+    else if (e.key === 'r') restart();
+    else if (e.key === 'h') toggleHide();
+    else if (e.key === 'o') { P.overlay = P.overlay ? 0 : 1; syncUrl(); }
+  });
+
+  function syncUrl() {
+    const s = new URLSearchParams();
+    for (const k of ['n', 'a1', 'a2', 'spread', 'trail', 'glow', 'speed', 'overlay']) s.set(k, P[k]);
+    history.replaceState(null, '', '?' + s);
+  }
+  let toastTimer;
+  function toast(msg) {
+    const t = $('toast'); t.textContent = msg; t.style.opacity = 1;
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => (t.style.opacity = 0), 1500);
+  }
+})();
+</script>
+</body>
+</html>

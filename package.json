@@ -1,0 +1,27 @@
+{
+  "name": "generative-art",
+  "version": "1.0.0",
+  "description": "",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sirDevelop/generativeArt.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "bugs": {
+    "url": "https://github.com/sirDevelop/generativeArt/issues"
+  },
+  "homepage": "https://github.com/sirDevelop/generativeArt#readme",
+  "private": "true",
+  "devDependencies": {
+    "puppeteer-core": "^25.17.0"
+  }
+}
