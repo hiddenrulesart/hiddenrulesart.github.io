@@ -114,7 +114,7 @@ execFileSync('ffmpeg', ['-y', '-loglevel', 'error',
   '-filter_complex',
   `[0:v][1:v]xfade=transition=fade:duration=${XF}:offset=${(sceneA - XF).toFixed(3)},format=yuv420p[v];` +
   `[2:a]adelay=${ms(hookAt)}:all=1[a0];[3:a]adelay=${ms(questionAt)}:all=1[a1];[4:a]adelay=${ms(simpleAt)}:all=1[a2];` +
-  `[a0][a1][a2]amix=inputs=3:normalize=0,apad,atrim=0:${total.toFixed(3)}[a]`,
+  `[a0][a1][a2]amix=inputs=3:normalize=0,loudnorm=I=-14:TP=-1.5:LRA=11,aresample=44100,apad,atrim=0:${total.toFixed(3)}[a]`,
   '-map', '[v]', '-map', '[a]', '-c:v', 'libx264', '-preset', 'slow', '-crf', '16', '-c:a', 'aac', '-b:a', '192k',
   '-movflags', '+faststart', '-t', total.toFixed(3), final], { stdio: 'inherit' });
 console.log(`Done: ${final} (${total.toFixed(1)}s)`);
