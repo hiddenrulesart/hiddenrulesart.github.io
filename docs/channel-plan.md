@@ -79,3 +79,4 @@ is "the lab": every piece from the series, playable.
 
 ## Status log
 - 2026-11-10: Plan written. Double pendulum piece built (interactive + record mode, tools/record.mjs). Defaults 150°/150°, spread 1e-5° → chaos at ~11s; 1e-7° → ~17s. Next: record a real video, then Lorenz attractor.
+- 2026-11-10: Repo made public; GitHub Pages live at https://sirdevelop.github.io/generativeArt/ (deploys from main /). Episode 1 full build pipeline done (videos/01-double-pendulum/build.mjs).
