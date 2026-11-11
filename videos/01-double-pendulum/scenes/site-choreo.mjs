@@ -33,6 +33,6 @@ export default async function ({ page, W, H, seconds }) {
     const [t0, p0, d0] = K[i], next = K[i + 1];
     const p = next ? lerp(p0, next[1], (t - t0) / (next[0] - t0)) : p0;
     const a = Math.min(1, Math.max(0, (t - 0.4) / 0.5)) * Math.min(1, Math.max(0, (seconds - t) / 0.5));
-    return { ...p, down: d0, banner: { text: '▶  Play with it yourself:  sirdevelop.github.io/generativeArt', alpha: a } };
+    return { ...p, down: d0, banner: { text: '▶  Play with it yourself:  sirdevelop.github.io/generativeArt/pendulum', alpha: a } };
   };
 }

@@ -3,3 +3,4 @@ renders/
 .DS_Store
 .env
 out/
+videos/voice-samples/

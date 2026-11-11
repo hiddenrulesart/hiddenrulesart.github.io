@@ -96,7 +96,7 @@ millions of digits. The solution exists. You can never use it.
 
 ### 11. Website (5:25–5:40)
 **VISUAL:** Website capture: tapping to drop planets, dragging to throw one (arrow + dotted predicted path),
-then the solar system falling apart. URL on screen.
+then the solar system falling apart. URL on screen: **sirdevelop.github.io/generativeArt/planets** (also first line of the description).
 **VO:** You can play with it, link in the description. Tap to drop a planet, drag to throw one, and try to
 build a solar system that doesn't fall apart. It's harder than it looks.
 

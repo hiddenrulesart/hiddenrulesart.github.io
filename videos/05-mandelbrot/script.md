@@ -78,7 +78,7 @@ get to trillions.
 
 ### 9. Website (4:45–5:00)
 **VISUAL:** Website capture: dragging, scroll and pinch zoom, the Julia inset following the cursor,
-"Surprise me", palettes, "Dive into infinity". URL on screen.
+"Surprise me", palettes, "Dive into infinity". URL on screen: **sirdevelop.github.io/generativeArt/mandelbrot** (also first line of the description).
 **VO:** It's on my website, link below. Find your own spiral, check out its Julia set, and save it as a
 wallpaper. There are places in there no one has ever looked at.
 
