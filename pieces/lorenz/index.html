@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%2305050a'/%3E%3Cpath d='M16 16c-3-6-11-7-11 0s8 6 11 0c3-6 11-7 11 0s-8 6-11 0z' stroke='%23ff9a5a' stroke-width='2' fill='none'/%3E%3C/svg%3E">
+<title>Lorenz Attractor</title>
+<meta name="description" content="The butterfly effect, live: thousands of particles start together and spread across the Lorenz attractor.">
+<meta property="og:title" content="Lorenz Attractor">
+<meta property="og:description" content="The butterfly effect, live: thousands of particles start together and spread across the Lorenz attractor.">
+<meta property="og:image" content="https://sirdevelop.github.io/generativeArt/assets/thumbs/lorenz.jpg">
+<meta property="og:url" content="https://sirdevelop.github.io/generativeArt/pieces/lorenz/">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="stylesheet" href="../../lib/ui.css">
+<style>
+  canvas.stage { cursor: grab; } canvas.stage:active { cursor: grabbing; }
+  body.record canvas.stage { width: auto; height: auto; cursor: default; }
+  body.record .panel, body.record .fab, body.record .back { display: none !important; }
+  #eq { font: italic 13px "Times New Roman", serif; color: #c9c9d8; line-height: 1.6; }
+</style>
+</head>
+<body>
+<canvas id="c" class="stage"></canvas>
+<a class="back" href="../../">← All pieces</a>
+
+<div id="panel" class="panel">
+  <h1>Lorenz Attractor</h1>
+  <p class="sub">Particles that start almost together, following three simple equations. Drag to rotate, scroll to zoom.</p>
+
+  <div class="section-title">Presets</div>
+  <div class="chips" id="presets"></div>
+  <div class="row"><button id="random">🎲 Surprise me</button></div>
+
+  <div class="section" id="controls"><div class="section-title">Tweak</div></div>
+  <div class="row">
+    <button id="restart">Restart</button>
+    <button id="pause">Pause</button>
+    <button id="spin">Auto-rotate: on</button>
+  </div>
+
+  <div id="export"></div>
+
+  <div class="section">
+    <div class="section-title">The story</div>
+    <div id="eq">dx/dt = σ(y − x)<br>dy/dt = x(ρ − z) − y<br>dz/dt = xy − βz</div>
+    <p class="story">In 1961 the meteorologist Edward Lorenz re-ran a weather simulation, typing in a number
+      rounded from 0.506127 to 0.506. The forecast came out completely different. Two years later he
+      boiled a model of rising warm air down to these three equations and found that the motion never repeats,
+      yet always stays on this shape: a <b>strange attractor</b>. In 1972 he asked: <i>does the flap of a butterfly's wings in
+      Brazil set off a tornado in Texas?</i> The attractor even looks like a butterfly.
+      Try changing ρ: below about 24.7 the chaos dies and every particle settles down.</p>
+  </div>
+  <div class="hintkeys">Space pause · R restart · S save · V record clip · H hide panel</div>
+</div>
+
+<script src="sim.js"></script>
+<script src="../../lib/ui.js"></script>
+<script>
+(() => {
+  'use strict';
+  const COUNTS = [1, 100, 1000, 2000, 5000, 10000];
+  const BASE = { n: 2000, spread: 1e-3, rho: 28, sigma: 10, beta: 8 / 3, speed: 1, trail: 0.92, glow: 0.6, ghost: 1 };
+  const PRESETS = {
+    'Butterfly effect': { ...BASE },
+    'One path':         { ...BASE, n: 1 },
+    'Storm cloud':      { ...BASE, n: 5000, spread: 20, trail: 0.85, glow: 0.3, warm: 12 },
+    'Calm weather':     { ...BASE, rho: 14, spread: 4, trail: 0.93, ghost: 0 },
+    'Knot':             { ...BASE, n: 1, rho: 99.96 },
+  };
+
+  const q = new URLSearchParams(location.search);
+  const num = (k, d) => (q.has(k) && !isNaN(+q.get(k)) ? +q.get(k) : d);
+  const P = {};
+  for (const k in BASE) P[k] = num(k, BASE[k]);
+  Object.assign(P, { record: num('record', 0), w: num('w', 3840), h: num('h', 2160), fps: num('fps', 60),
+    warm: num('warm', 0), rot: num('rot', 0.12), yaw: num('yaw', 0.6), pitch: num('pitch', 0.25), zoom: num('zoom', 1) });
+  const RATE = 1.5;   // Lorenz time units per second at speed 1
+
+  const canvas = document.getElementById('c');
+  const ctx = canvas.getContext('2d', { alpha: false });
+  let W = 0, H = 0, sim, paused = false, spin = true, dragging = false;
+  let px, py, pz;          // previous positions, to draw this frame's motion as segments
+  const layer = document.createElement('canvas'), lctx = layer.getContext('2d');   // particle trails fade here
+  let ghost = null, ghostKey = '';   // faint outline of the attractor (one long reference path)
+  function ghostPath() {
+    const key = [P.rho, P.sigma, P.beta].join();
+    if (ghost && key === ghostKey) return ghost;
+    const g = LorenzSim.createLorenz({ n: 1 }); Object.assign(g.params, { rho: P.rho, sigma: P.sigma, beta: P.beta });
+    g.reset(0, 0.1, 0, 20); g.step(20, 8000);                    // let it settle onto the attractor
+    const pts = new Float32Array(3 * 12000);
+    for (let i = 0; i < 12000; i++) { g.step(0.01, 4); pts[3 * i] = g.x[0]; pts[3 * i + 1] = g.y[0]; pts[3 * i + 2] = g.z[0]; }
+    ghostKey = key; return (ghost = pts);
+  }
+  const hist = [];          // single-particle mode: the full path
+  const BUCKETS = 64;
+  const color = (b, a) => `hsla(${(b / BUCKETS) * 300 + 10},95%,60%,${a})`;
+
+  function resize() {
+    if (P.record) { W = P.w; H = P.h; }
+    else { const dpr = Math.min(devicePixelRatio || 1, 2); W = Math.round(innerWidth * dpr); H = Math.round(innerHeight * dpr); }
+    canvas.width = layer.width = W; canvas.height = layer.height = H;
+    ctx.fillStyle = '#05050a'; ctx.fillRect(0, 0, W, H);
+    lctx.fillStyle = '#000'; lctx.fillRect(0, 0, W, H);
+  }
+  function restart() {
+    if (!sim || sim.n !== P.n) sim = LorenzSim.createLorenz({ n: P.n });
+    Object.assign(sim.params, { rho: P.rho, sigma: P.sigma, beta: P.beta });   // before any pre-run
+    // start the cloud at a point already on the attractor (skips the slow approach from (1,1,1))
+    const g = LorenzSim.createLorenz({ n: 1 }); Object.assign(g.params, sim.params); g.reset(0); g.step(15, 3750);
+    sim.reset(P.spread, g.x[0], g.y[0], g.z[0]);
+    if (P.warm) sim.step(P.warm, Math.ceil(P.warm / 0.004));   // pre-run so the cloud starts already spread out
+    px = new Float64Array(sim.x); py = new Float64Array(sim.y); pz = new Float64Array(sim.z);
+    hist.length = 0;
+    ctx.fillStyle = '#05050a'; ctx.fillRect(0, 0, W, H);
+    lctx.fillStyle = '#000'; lctx.fillRect(0, 0, W, H);
+  }
+
+  // rotate about the attractor's vertical (z) axis, then tilt; orthographic projection
+  function projector() {
+    const S = Math.min(W, H), sc = S / 62 * P.zoom, cz = Math.max(P.rho - 1, 1);
+    const cy = Math.cos(P.yaw), sy = Math.sin(P.yaw), cp = Math.cos(P.pitch), sp = Math.sin(P.pitch);
+    return (x, y, z, out, i) => {
+      const X = x * cy - y * sy, Y = x * sy + y * cy, Z = z - cz;
+      out[i] = W / 2 + X * sc;
+      out[i + 1] = H / 2 - (Z * cp - Y * sp) * sc;
+    };
+  }
+  const tmp = new Float64Array(4);
+
+  function advance(dt) {
+    px.set(sim.x); py.set(sim.y); pz.set(sim.z);
+    const t = dt * RATE * P.speed;
+    sim.step(t, Math.max(1, Math.ceil(t / 0.002)));
+    if (sim.n === 1) { hist.push(sim.x[0], sim.y[0], sim.z[0]); if (hist.length > 3 * 40000) hist.splice(0, 3); }
+  }
+
+  function draw() {
+    const S = Math.min(W, H), lw = Math.max(1, S / 900), proj = projector();
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    if (sim.n === 1) {
+      // whole path, redrawn each frame so it can be rotated cleanly
+      ctx.fillStyle = '#05050a'; ctx.fillRect(0, 0, W, H);
+      ctx.globalCompositeOperation = 'lighter'; ctx.lineWidth = lw;
+      const m = hist.length / 3, CH = 300;
+      for (let s = 0; s < m - 1; s += CH) {
+        const e = Math.min(m - 1, s + CH);
+        ctx.strokeStyle = `hsla(${(20 + 300 * s / Math.max(1, m)) % 360},95%,62%,0.7)`;
+        ctx.beginPath();
+        for (let i = s; i <= e; i++) { proj(hist[3 * i], hist[3 * i + 1], hist[3 * i + 2], tmp, 0); i === s ? ctx.moveTo(tmp[0], tmp[1]) : ctx.lineTo(tmp[0], tmp[1]); }
+        ctx.stroke();
+      }
+      proj(sim.x[0], sim.y[0], sim.z[0], tmp, 0);
+      ctx.globalCompositeOperation = 'source-over'; ctx.fillStyle = '#fff';
+      ctx.beginPath(); ctx.arc(tmp[0], tmp[1], lw * 3.5, 0, 7); ctx.fill();
+      return;
+    }
+    // particle layer: fade, then this frame's motion as short segments
+    lctx.globalCompositeOperation = 'source-over';
+    lctx.fillStyle = `rgba(0,0,0,${1 - P.trail})`; lctx.fillRect(0, 0, W, H);
+    lctx.globalCompositeOperation = 'lighter'; lctx.lineWidth = lw * 1.8; lctx.lineCap = 'round';
+    const n = sim.n, per = Math.ceil(n / BUCKETS);
+    for (let b = 0; b * per < n; b++) {
+      lctx.beginPath();
+      for (let i = b * per, e = Math.min(n, (b + 1) * per); i < e; i++) {
+        proj(px[i], py[i], pz[i], tmp, 0); proj(sim.x[i], sim.y[i], sim.z[i], tmp, 2);
+        lctx.moveTo(tmp[0], tmp[1]); lctx.lineTo(tmp[2] + 0.01, tmp[3]);
+      }
+      lctx.strokeStyle = color(Math.floor(b * per / n * BUCKETS), P.glow); lctx.stroke();
+    }
+    // compose: background, faint attractor outline, particles on top
+    ctx.fillStyle = '#05050a'; ctx.fillRect(0, 0, W, H);
+    if (P.ghost) {
+      const g = ghostPath();
+      ctx.globalCompositeOperation = 'lighter'; ctx.lineWidth = lw; ctx.strokeStyle = 'rgba(150,140,255,0.07)';
+      ctx.beginPath();
+      for (let i = 0; i < g.length / 3; i++) { proj(g[3 * i], g[3 * i + 1], g[3 * i + 2], tmp, 0); i ? ctx.lineTo(tmp[0], tmp[1]) : ctx.moveTo(tmp[0], tmp[1]); }
+      ctx.stroke();
+    }
+    ctx.globalCompositeOperation = 'lighter'; ctx.drawImage(layer, 0, 0);
+    ctx.globalCompositeOperation = 'source-over';
+  }
+
+  function frame(dt) {
+    if (spin && !dragging) P.yaw += P.rot * dt;
+    advance(dt); draw();
+  }
+
+  if (P.record) {
+    document.body.classList.add('record');
+    resize(); restart(); draw();
+    window.__recorder = { ready: true, width: W, height: H, fps: P.fps,
+      frame(type = 'image/png', quality) { frame(1 / P.fps); return canvas.toDataURL(type, quality); } };
+    return;
+  }
+
+  addEventListener('resize', resize);
+  resize(); restart();
+  let last = performance.now();
+  (function loop(now) {
+    const dt = Math.min(0.05, (now - last) / 1000); last = now;
+    if (!paused) frame(dt); else draw();
+    requestAnimationFrame(loop);
+  })(last);
+  UI.hint('lorenz-drag', matchMedia('(pointer: coarse)').matches ? 'Drag to rotate · pinch to zoom' : 'Drag to rotate · scroll to zoom');
+
+  // rotate / zoom
+  let lx = 0, ly = 0, pinch = 0;
+  const pts = new Map();   // active pointers: one finger rotates, two fingers pinch-zoom
+  const spread2 = () => { const [a, b] = [...pts.values()]; return Math.hypot(a.x - b.x, a.y - b.y); };
+  canvas.addEventListener('pointerdown', e => {
+    canvas.setPointerCapture(e.pointerId); pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    dragging = true; lx = e.clientX; ly = e.clientY; if (pts.size === 2) pinch = spread2();
+  });
+  canvas.addEventListener('pointermove', e => {
+    if (!pts.has(e.pointerId)) return;
+    pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pts.size >= 2) { const d = spread2(); if (pinch) P.zoom = Math.max(0.3, Math.min(5, P.zoom * d / pinch)); pinch = d; return; }
+    P.yaw += (e.clientX - lx) * 0.006;
+    P.pitch = Math.max(-1.4, Math.min(1.4, P.pitch + (e.clientY - ly) * 0.006));
+    lx = e.clientX; ly = e.clientY;
+  });
+  const up = e => {
+    pts.delete(e.pointerId); pinch = 0;
+    if (pts.size === 1) { const p = [...pts.values()][0]; lx = p.x; ly = p.y; }
+    dragging = pts.size > 0;
+  };
+  canvas.addEventListener('pointerup', up); canvas.addEventListener('pointercancel', up);
+  canvas.addEventListener('wheel', e => { e.preventDefault(); P.zoom = Math.max(0.3, Math.min(5, P.zoom * Math.exp(-e.deltaY * 0.0015))); }, { passive: false });
+
+  const $ = id => document.getElementById(id);
+  const panel = UI.panel($('panel'));
+  const c = $('controls');
+  const idx = v => COUNTS.reduce((b, x, i) => Math.abs(x - v) < Math.abs(COUNTS[b] - v) ? i : b, 0);
+  const fmtSpread = v => (v >= 0.01 ? `${+v.toPrecision(2)}` : v.toExponential(0));
+  const sl = {
+    n: UI.slider(c, { id: 'n', label: 'Particles', min: 0, max: COUNTS.length - 1, step: 1, value: P.n, toUi: idx, fromUi: i => COUNTS[i],
+      format: v => v.toLocaleString(), onInput: v => { P.n = v; restart(); sync(); } }),
+    spread: UI.slider(c, { id: 'spread', label: 'Starting cloud size', min: -10, max: 1.5, step: 0.5, value: P.spread,
+      toUi: v => Math.log10(v), fromUi: v => 10 ** v, format: fmtSpread, onInput: v => { P.spread = v; restart(); sync(); } }),
+    rho: UI.slider(c, { id: 'rho', label: 'ρ (rho): heating', min: 0, max: 100, step: 0.01, value: P.rho, format: v => v.toFixed(2), onInput: v => { P.rho = sim.params.rho = v; sync(); } }),
+    sigma: UI.slider(c, { id: 'sigma', label: 'σ (sigma)', min: 1, max: 30, step: 0.1, value: P.sigma, format: v => v.toFixed(1), onInput: v => { P.sigma = sim.params.sigma = v; sync(); } }),
+    beta: UI.slider(c, { id: 'beta', label: 'β (beta)', min: 0.5, max: 5, step: 0.01, value: P.beta, format: v => v.toFixed(2), onInput: v => { P.beta = sim.params.beta = v; sync(); } }),
+    speed: UI.slider(c, { id: 'speed', label: 'Speed', min: 0.1, max: 3, step: 0.05, value: P.speed, format: v => v.toFixed(2) + '×', onInput: v => { P.speed = v; sync(); } }),
+    trail: UI.slider(c, { id: 'trail', label: 'Trails', min: 0, max: 0.97, step: 0.01, value: P.trail, format: v => v.toFixed(2), onInput: v => { P.trail = v; sync(); } }),
+    ghost: UI.slider(c, { id: 'ghost', label: 'Show the attractor shape', min: 0, max: 1, step: 1, value: P.ghost, format: v => (v ? 'on' : 'off'), onInput: v => { P.ghost = v; sync(); } }),
+    glow: UI.slider(c, { id: 'glow', label: 'Brightness', min: 0.02, max: 1, step: 0.01, value: P.glow, format: v => v.toFixed(2), onInput: v => { P.glow = v; sync(); } }),
+  };
+  const setParams = () => Object.assign(sim.params, { rho: P.rho, sigma: P.sigma, beta: P.beta });
+  function apply(s) { Object.assign(P, { warm: 0 }, s); restart(); setParams(); for (const k in sl) sl[k].set(P[k]); sync(); }
+  setParams();
+  for (const name in PRESETS) { const b = document.createElement('button'); b.textContent = name; b.onclick = () => apply(PRESETS[name]); $('presets').appendChild(b); }
+  $('random').onclick = () => {
+    const r = (a, b) => a + Math.random() * (b - a);
+    apply({ ...BASE, n: [1, 2000, 5000][Math.floor(r(0, 3))], rho: +r(24, 60).toFixed(2), sigma: +r(6, 16).toFixed(1),
+      beta: +r(1.5, 3.5).toFixed(2), spread: 10 ** Math.round(r(-8, 1)), trail: +r(0.8, 0.95).toFixed(2) });
+  };
+  const exp = UI.exportSection($('export'), { canvas, name: 'lorenz-attractor', title: 'Lorenz Attractor' });
+  const togglePause = () => { paused = !paused; $('pause').textContent = paused ? 'Play' : 'Pause'; };
+  $('restart').onclick = restart; $('pause').onclick = togglePause;
+  $('spin').onclick = () => { spin = !spin; $('spin').textContent = `Auto-rotate: ${spin ? 'on' : 'off'}`; };
+  addEventListener('keydown', e => {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.metaKey || e.ctrlKey) return;
+    if (e.code === 'Space') { e.preventDefault(); togglePause(); }
+    else if (e.key === 'r') restart();
+    else if (e.key === 's') exp.save();
+    else if (e.key === 'v') exp.clip();
+    else if (e.key === 'h') panel.toggle();
+  });
+  function sync() {
+    const s = new URLSearchParams();
+    for (const k in BASE) s.set(k, +(+P[k]).toPrecision(6));
+    history.replaceState(null, '', '?' + s);
+  }
+})();
+</script>
+</body>
+</html>

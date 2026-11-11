@@ -2,29 +2,61 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%2305050a'/%3E%3Cpath d='M16 6 L9 16 L20 25' stroke='white' stroke-width='2.2' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='16' cy='6' r='2' fill='white'/%3E%3Ccircle cx='20' cy='25' r='3.4' fill='%239f8cff'/%3E%3C/svg%3E">
 <title>Generative Art</title>
+<meta name="description" content="Math and physics, made into art you can play with. Chaos, fractals and emergence, one interactive piece at a time.">
+<meta property="og:title" content="Generative Art: math you can play with">
+<meta property="og:description" content="Chaos, fractals and emergence, one interactive piece at a time.">
+<meta property="og:image" content="https://sirdevelop.github.io/generativeArt/assets/thumbs/double-pendulum.jpg">
+<meta property="og:url" content="https://sirdevelop.github.io/generativeArt/">
+<meta name="twitter:card" content="summary_large_image">
 <style>
-  :root { --bg: #05050a; --fg: #e8e8f0; --muted: #8a8aa0; --card: #11111c; --line: rgba(255,255,255,.1); }
-  body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.5 system-ui, -apple-system, sans-serif; }
-  main { max-width: 880px; margin: 0 auto; padding: 48px 16px; }
-  h1 { font-size: 32px; margin: 0 0 4px; } p { color: var(--muted); margin: 0 0 32px; }
-  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px; }
-  a.card { display: block; padding: 20px; background: var(--card); border: 1px solid var(--line); border-radius: 12px;
-    color: inherit; text-decoration: none; transition: border-color .2s; }
-  a.card:hover { border-color: rgba(255,255,255,.35); }
-  a.card h2 { font-size: 18px; margin: 0 0 6px; } a.card span { color: var(--muted); font-size: 14px; }
+  :root { --bg: #05050a; --fg: #e8e8f0; --muted: #8a8aa0; --card: #0f0f1a; --line: rgba(255,255,255,.1); --accent: #9f8cff; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 1040px; margin: 0 auto; padding: 56px 16px 64px; }
+  h1 { font-size: clamp(30px, 6vw, 44px); margin: 0 0 6px; letter-spacing: -0.02em; }
+  .lede { color: var(--muted); margin: 0 0 36px; max-width: 560px; }
+  h2 { font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 0 0 14px; font-weight: 600; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 18px; }
+  a.card { display: flex; flex-direction: column; background: var(--card); border: 1px solid var(--line); border-radius: 14px;
+    overflow: hidden; color: inherit; text-decoration: none; transition: border-color .2s, transform .2s; }
+  a.card:hover { border-color: rgba(255,255,255,.35); transform: translateY(-2px); }
+  a.card img { width: 100%; aspect-ratio: 1200 / 630; object-fit: cover; display: block; background: #000; }
+  .body { padding: 14px 16px 18px; }
+  .ep { font-size: 12px; color: var(--accent); font-weight: 600; }
+  a.card h3 { font-size: 19px; margin: 2px 0 6px; }
+  a.card p { margin: 0; color: var(--muted); font-size: 14px; }
+  .soon { margin-top: 40px; color: var(--muted); font-size: 14px; }
+  footer { margin-top: 48px; color: var(--muted); font-size: 13px; }
+  footer a { color: var(--muted); }
 </style>
 </head>
 <body>
 <main>
   <h1>Generative Art</h1>
-  <p>Math and physics, made into art you can play with.</p>
+  <p class="lede">Math and physics, made into art you can play with. Every piece is a real simulation running in
+    your browser: drag it, tweak it, save it, share it.</p>
+
+  <h2>Season 1 · Chaos</h2>
   <div class="grid">
-    <a class="card" href="pieces/double-pendulum/"><h2>Double Pendulum Chaos</h2>
-      <span>1,000 pendulums start a hair apart. Watch them split into a rainbow.</span></a>
+    <a class="card" href="pieces/double-pendulum/">
+      <img src="assets/thumbs/double-pendulum.jpg" alt="Thousands of pendulums fanning out into a rainbow" loading="lazy">
+      <div class="body"><div class="ep">Episode 1</div><h3>Double Pendulum Chaos</h3>
+        <p>1,000 pendulums start within a hundred-thousandth of a degree. Watch invisible differences become a rainbow.</p></div></a>
+    <a class="card" href="pieces/lorenz/">
+      <img src="assets/thumbs/lorenz.jpg" alt="The butterfly-shaped Lorenz attractor drawn by glowing particles" loading="lazy">
+      <div class="body"><div class="ep">Episode 2</div><h3>Lorenz Attractor</h3>
+        <p>A rounding error in 1961 revealed the butterfly effect, and a shape that looks like a butterfly.</p></div></a>
+    <a class="card" href="pieces/logistic-map/">
+      <img src="assets/thumbs/logistic-map.jpg" alt="The bifurcation diagram of the logistic map, splitting into chaos" loading="lazy">
+      <div class="body"><div class="ep">Episode 3</div><h3>The Logistic Map</h3>
+        <p>One line of algebra about rabbits hides an infinite fractal. Zoom in forever.</p></div></a>
   </div>
+  <p class="soon">Coming next: the three-body problem.</p>
+
+  <footer>Open source on <a href="https://github.com/sirDevelop/generativeArt">GitHub</a>.</footer>
 </main>
 </body>
 </html>

@@ -1,0 +1,307 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%2305050a'/%3E%3Cpath d='M4 20 L12 20 L16 13 M12 20 L16 26 M16 13 L28 9 M16 13 L28 16 M16 26 L28 22 M16 26 L28 29' stroke='%23ffb35a' stroke-width='1.8' fill='none' stroke-linecap='round'/%3E%3C/svg%3E">
+<title>Logistic Map</title>
+<meta name="description" content="One line of algebra about rabbit populations hides an infinite fractal. Zoom in forever.">
+<meta property="og:title" content="The Logistic Map">
+<meta property="og:description" content="One line of algebra about rabbit populations hides an infinite fractal. Zoom in forever.">
+<meta property="og:image" content="https://sirdevelop.github.io/generativeArt/assets/thumbs/logistic-map.jpg">
+<meta property="og:url" content="https://sirdevelop.github.io/generativeArt/pieces/logistic-map/">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="stylesheet" href="../../lib/ui.css">
+<style>
+  #wrap { position: fixed; inset: 0; }
+  #wrap canvas { position: absolute; inset: 0; width: 100vw; height: 100vh; }
+  #ov { cursor: crosshair; touch-action: none; }
+  body.record #wrap canvas { width: auto; height: auto; }
+  body.record .panel, body.record .fab, body.record .back { display: none !important; }
+  #eq { font: italic 15px "Times New Roman", serif; color: #fff; margin: 4px 0 8px; }
+  #where { font-size: 12px; color: var(--muted); margin-top: 6px; font-variant-numeric: tabular-nums; }
+</style>
+</head>
+<body>
+<div id="wrap"><canvas id="c"></canvas><canvas id="ov"></canvas></div>
+<a class="back" href="../../">← All pieces</a>
+
+<div id="panel" class="panel">
+  <h1>The Logistic Map</h1>
+  <p class="sub">Each column is one growth rate <i>r</i>; the bright points are where the population ends up.
+    Drag a box to zoom, scroll to zoom, hover to see the population over time.</p>
+
+  <div class="section-title">Places to visit</div>
+  <div class="chips" id="presets"></div>
+  <div class="row"><button id="dive" class="primary">Dive into infinity</button></div>
+  <div class="row"><button id="back">← Zoom back</button><button id="home">Reset view</button></div>
+  <div id="where"></div>
+
+  <div class="section" id="controls"><div class="section-title">Tweak</div></div>
+
+  <div id="export"></div>
+
+  <div class="section">
+    <div class="section-title">The story</div>
+    <div id="eq">x<sub>next</sub> = r · x · (1 − x)</div>
+    <p class="story">A toy model of an animal population: <i>x</i> is the population (as a fraction of the
+      maximum), <i>r</i> is how fast it breeds. In 1976 the ecologist Robert May showed that this one line
+      can behave wildly: for small <i>r</i> the population settles down; past 3 it bounces between 2 values,
+      then 4, 8, 16… and past about 3.57 it never repeats: <b>chaos</b>.<br><br>
+      In 1975 Mitchell Feigenbaum, playing with a pocket calculator, noticed that each doubling arrives
+      4.669… times sooner than the last. Then he found the <i>same</i> number in completely different
+      equations, and experiments later found it in real fluids. Zoom in anywhere chaotic and you'll find
+      tiny copies of the whole picture.</p>
+  </div>
+  <div class="hintkeys">S save · V record clip · D dive · B zoom back · H hide panel</div>
+</div>
+
+<script src="../../lib/ui.js"></script>
+<script>
+(() => {
+  'use strict';
+  const R_INF = 3.5699456718709449;          // Feigenbaum point: end of the period-doubling cascade
+  const DELTA = 4.669201609102990, ALPHA = 2.502907875095892;
+  const HOME = { r0: 2.5, r1: 4, x0: 0, x1: 1 };
+  const VIEWS = {
+    'Whole map':        { r0: 1, r1: 4, x0: 0, x1: 1 },
+    'Period doubling':  { r0: 2.95, r1: 3.6, x0: 0.25, x1: 0.95 },
+    'Edge of chaos':    { r0: 3.54, r1: 3.6, x0: 0.3, x1: 0.92 },
+    'Period-3 window':  { r0: 3.82, r1: 3.86, x0: 0, x1: 1 },
+    'Copy of the whole':{ r0: 3.8414, r1: 3.8573, x0: 0.44, x1: 0.56 },
+  };
+
+  const q = new URLSearchParams(location.search);
+  const num = (k, d) => (q.has(k) && !isNaN(+q.get(k)) ? +q.get(k) : d);
+  const P = { detail: num('detail', 600), contrast: num('contrast', 0.55), record: num('record', 0),
+    w: num('w', 3840), h: num('h', 2160), fps: num('fps', 60), dive: num('dive', 0) };
+  let view = { r0: num('r0', HOME.r0), r1: num('r1', HOME.r1), x0: num('x0', HOME.x0), x1: num('x1', HOME.x1) };
+
+  const canvas = document.getElementById('c'), ov = document.getElementById('ov');
+  const ctx = canvas.getContext('2d', { alpha: false }), octx = ov.getContext('2d');
+  let W = 0, H = 0, dpr = 1, hist, img, passes = 0, diving = !!P.dive;
+  const history_ = [];
+
+  // seeded RNG so record mode is deterministic
+  let seed = 12345;
+  const rnd = () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296);
+
+  // palette: black -> violet -> magenta -> orange -> pale gold
+  const PAL = new Uint8Array(256 * 3);
+  (() => {
+    const stops = [[0, 5, 5, 10], [0.25, 70, 30, 150], [0.5, 200, 50, 160], [0.75, 255, 140, 60], [1, 255, 240, 200]];
+    for (let i = 0; i < 256; i++) {
+      const t = i / 255; let k = 0; while (t > stops[k + 1][0]) k++;
+      const [t0, ...a] = stops[k], [t1, ...b] = stops[k + 1], u = (t - t0) / (t1 - t0);
+      for (let c = 0; c < 3; c++) PAL[i * 3 + c] = a[c] + (b[c] - a[c]) * u;
+    }
+  })();
+
+  function resize() {
+    if (P.record) { W = P.w; H = P.h; dpr = 1; }
+    else { dpr = Math.min(devicePixelRatio || 1, 2); W = Math.round(innerWidth * dpr); H = Math.round(innerHeight * dpr); }
+    canvas.width = ov.width = W; canvas.height = ov.height = H;
+    hist = new Float32Array(W * H); img = ctx.createImageData(W, H);
+    invalidate();
+  }
+  function invalidate() { hist.fill(0); passes = 0; }
+
+  // One pass: for every pixel column, iterate the map and count where x lands.
+  function pass(detail) {
+    const { r0, r1, x0, x1 } = view, warm = Math.round(detail * 1.5);
+    const sx = (r1 - r0) / W, sy = H / (x1 - x0);
+    for (let col = 0; col < W; col++) {
+      const r = r0 + (col + rnd()) * sx;
+      let x = 0.05 + 0.9 * rnd();
+      for (let i = 0; i < warm; i++) x = r * x * (1 - x);
+      for (let i = 0; i < detail; i++) {
+        x = r * x * (1 - x);
+        if (x >= x0 && x < x1) hist[((x1 - x) * sy | 0) * W + col]++;
+      }
+    }
+    passes++;
+  }
+  function paint() {
+    const d = img.data, g = P.contrast;
+    const LUT = new Uint16Array(1025);   // density ratio -> palette offset (avoids pow() per pixel)
+    for (let j = 0; j <= 1024; j++) LUT[j] = 3 * Math.min(255, (40 + 215 * Math.pow(j / 1024, g)) | 0);
+    for (let col = 0; col < W; col++) {
+      let m = 0; for (let row = 0; row < H; row++) { const v = hist[row * W + col]; if (v > m) m = v; }
+      const inv = m > 0 ? 1024 / m : 0;
+      for (let row = 0; row < H; row++) {
+        const v = hist[row * W + col], p = (row * W + col) * 4;
+        const k = v > 0 ? LUT[(v * inv) | 0] : 0;
+        d[p] = PAL[k]; d[p + 1] = PAL[k + 1]; d[p + 2] = PAL[k + 2]; d[p + 3] = 255;
+      }
+    }
+    ctx.putImageData(img, 0, 0);
+  }
+
+  // Dive: zoom toward the Feigenbaum point, shrinking r by δ and x by α per doubling (true self-similarity)
+  const DIVE_RATE = 0.35;   // doublings per second
+  function diveStep(dt) {
+    const k = Math.pow(DELTA, -DIVE_RATE * dt), kx = Math.pow(ALPHA, -DIVE_RATE * dt);
+    const rc = R_INF, xc = 0.5;
+    const rf = (rc - view.r0) / (view.r1 - view.r0), xf = (xc - view.x0) / (view.x1 - view.x0);
+    // drift the target toward the centre while zooming
+    const rw = (view.r1 - view.r0) * k, xw = (view.x1 - view.x0) * kx;
+    const rfn = rf + (0.5 - rf) * Math.min(1, dt * 1.5), xfn = xf + (0.5 - xf) * Math.min(1, dt * 1.5);
+    view = { r0: rc - rfn * rw, r1: rc + (1 - rfn) * rw, x0: xc - xfn * xw, x1: xc + (1 - xfn) * xw };
+    if (rw < 1e-11) diving = false;   // limit of double precision
+  }
+
+  function frame(dt) {
+    if (diving) { diveStep(dt); invalidate(); pass(Math.round(P.detail * 0.6)); pass(Math.round(P.detail * 0.6)); paint(); updateWhere(); }
+    else if (passes < 10) { pass(P.detail); paint(); }
+  }
+
+  if (P.record) {
+    document.body.classList.add('record');
+    resize(); pass(P.detail); pass(P.detail); paint();
+    window.__recorder = { ready: true, width: W, height: H, fps: P.fps,
+      frame(type = 'image/png', quality) { if (diving) frame(1 / P.fps); else { pass(P.detail); paint(); } return canvas.toDataURL(type, quality); } };
+    return;
+  }
+
+  // ---- overlay: axis labels, hover probe, zoom box
+  let hover = null, box = null;
+  const toR = px => view.r0 + px / W * (view.r1 - view.r0), toX = py => view.x1 - py / H * (view.x1 - view.x0);
+  function classify(r) {
+    let x = 0.2; for (let i = 0; i < 4000; i++) x = r * x * (1 - x);
+    const s = []; for (let i = 0; i < 70; i++) { x = r * x * (1 - x); s.push(x); }
+    for (let p = 1; p <= 64; p++) { let ok = true; for (let i = 0; i + p < s.length && ok; i++) ok = Math.abs(s[i] - s[i + p]) < 1e-7; if (ok) return p; }
+    return 0;
+  }
+  function describe(r) {
+    if (r < 1) return 'the population dies out';
+    const p = classify(r);
+    if (p === 1) return 'the population settles to one steady value';
+    if (p) return `the population cycles between ${p} values forever`;
+    return 'chaos: the population never repeats';
+  }
+  const digits = () => Math.max(3, Math.ceil(-Math.log10(view.r1 - view.r0)) + 3);
+  function drawOverlay() {
+    octx.clearRect(0, 0, W, H);
+    const f = dpr, fs = 12 * f;
+    octx.font = `${fs}px system-ui, sans-serif`; octx.fillStyle = 'rgba(255,255,255,0.5)'; octx.textBaseline = 'top';
+    const d = digits();   // axis labels at the top, clear of the buttons along the bottom
+    octx.textAlign = 'left'; octx.fillText(`r = ${view.r0.toFixed(d)}`, 12 * f, 12 * f);
+    octx.textAlign = 'center'; octx.fillText(`r = ${((view.r0 + view.r1) / 2).toFixed(d)}`, W / 2, 12 * f);
+    if (box) {
+      octx.strokeStyle = 'rgba(255,255,255,0.9)'; octx.lineWidth = f; octx.setLineDash([5 * f, 4 * f]);
+      octx.strokeRect(Math.min(box.ax, box.bx), Math.min(box.ay, box.by), Math.abs(box.bx - box.ax), Math.abs(box.by - box.ay));
+      octx.setLineDash([]);
+    }
+    if (!hover || diving) return;
+    const r = toR(hover.x);
+    octx.strokeStyle = 'rgba(255,255,255,0.35)'; octx.lineWidth = f;
+    octx.beginPath(); octx.moveTo(hover.x, 0); octx.lineTo(hover.x, H); octx.stroke();
+    // inset: population over time at this r
+    const iw = Math.min(380 * f, W - 32 * f), ih = 150 * f, ix = 16 * f, iy = H - ih - 40 * f;
+    octx.fillStyle = 'rgba(16,16,28,0.9)'; octx.strokeStyle = 'rgba(255,255,255,0.15)';
+    octx.beginPath(); octx.roundRect ? octx.roundRect(ix, iy, iw, ih, 10 * f) : octx.rect(ix, iy, iw, ih); octx.fill(); octx.stroke();
+    octx.fillStyle = '#fff'; octx.textAlign = 'left'; octx.textBaseline = 'top'; octx.font = `600 ${13 * f}px system-ui, sans-serif`;
+    octx.fillText(`r = ${r.toFixed(d)}`, ix + 12 * f, iy + 10 * f);
+    octx.font = `${12 * f}px system-ui, sans-serif`; octx.fillStyle = 'rgba(255,255,255,0.7)';
+    octx.fillText(describe(r), ix + 12 * f, iy + 28 * f);
+    let x = 0.2; const N = 50, px0 = ix + 12 * f, pw = iw - 24 * f, py0 = iy + 50 * f, ph = ih - 62 * f;
+    octx.strokeStyle = 'hsl(30,95%,62%)'; octx.lineWidth = 1.5 * f; octx.beginPath();
+    for (let i = 0; i <= N; i++) { const X = px0 + pw * i / N, Y = py0 + ph * (1 - x); i ? octx.lineTo(X, Y) : octx.moveTo(X, Y); x = r * x * (1 - x); }
+    octx.stroke();
+    octx.fillStyle = 'rgba(255,255,255,0.4)'; octx.font = `${10 * f}px system-ui, sans-serif`; octx.textAlign = 'right';
+    octx.fillText('generations →', ix + iw - 12 * f, iy + ih - 14 * f);
+  }
+
+  const $ = id => document.getElementById(id);
+  function updateWhere() {
+    const zoom = (HOME.r1 - HOME.r0) / (view.r1 - view.r0);
+    $('where').textContent = `Zoom ${zoom < 1e4 ? zoom.toFixed(zoom < 10 ? 1 : 0) : zoom.toExponential(1)}×  ·  r ${view.r0.toFixed(digits())} – ${view.r1.toFixed(digits())}`;
+  }
+  function go(v, push = true) {
+    if (push) history_.push(view);
+    diving = false; view = v; invalidate(); updateWhere(); sync(); drawOverlay();
+  }
+
+  addEventListener('resize', () => { resize(); drawOverlay(); });
+  resize(); updateWhere();
+  let last = performance.now();
+  (function loop(now) {
+    const dt = Math.min(0.05, (now - last) / 1000); last = now;
+    frame(dt);
+    if (diving || box || hover) drawOverlay();
+    requestAnimationFrame(loop);
+  })(last);
+  UI.hint('logistic-zoom', matchMedia('(pointer: coarse)').matches ? 'Drag a box or pinch to zoom · tap to see what the population does' : 'Drag a box to zoom in · hover to see what the population does');
+
+  const pos = e => { const r = ov.getBoundingClientRect(); return { x: (e.clientX - r.left) / r.width * W, y: (e.clientY - r.top) / r.height * H }; };
+  // one finger/mouse: drag a box to zoom (or tap to probe); two fingers: pinch to zoom
+  const touches = new Map(); let pinch = null;
+  const zoomAt = (px, py, k) => {
+    const r = toR(px), x = toX(py);
+    view = { r0: r - (r - view.r0) * k, r1: r + (view.r1 - r) * k, x0: x - (x - view.x0) * k, x1: x + (view.x1 - x) * k };
+    view.x0 = Math.max(-0.05, view.x0); view.x1 = Math.min(1.05, view.x1);
+    diving = false; invalidate(); updateWhere();
+  };
+  const pinchState = () => { const [a, b] = [...touches.values()]; return { d: Math.hypot(a.x - b.x, a.y - b.y), x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }; };
+  ov.addEventListener('pointerdown', e => {
+    ov.setPointerCapture(e.pointerId); const p = pos(e); touches.set(e.pointerId, p);
+    if (touches.size === 2) { box = null; history_.push(view); pinch = pinchState(); return; }
+    box = { ax: p.x, ay: p.y, bx: p.x, by: p.y }; diving = false;
+  });
+  ov.addEventListener('pointermove', e => {
+    const p = pos(e); hover = p;
+    if (touches.has(e.pointerId)) touches.set(e.pointerId, p);
+    if (pinch && touches.size >= 2) { const s = pinchState(); zoomAt(s.x, s.y, pinch.d / s.d); pinch = s; return; }
+    if (box) { box.bx = p.x; box.by = p.y; }
+  });
+  ov.addEventListener('pointercancel', e => { touches.delete(e.pointerId); box = null; pinch = null; });
+  ov.addEventListener('pointerleave', () => { hover = null; drawOverlay(); });
+  ov.addEventListener('pointerup', e => {
+    touches.delete(e.pointerId);
+    if (pinch) { if (touches.size < 2) { pinch = null; sync(); } return; }
+    if (!box) return;
+    const b = box; box = null;
+    if (Math.abs(b.bx - b.ax) < 8 * dpr || Math.abs(b.by - b.ay) < 8 * dpr) { hover = pos(e); drawOverlay(); return; }   // a tap: just probe
+    const xa = Math.min(b.ax, b.bx), xb = Math.max(b.ax, b.bx), ya = Math.min(b.ay, b.by), yb = Math.max(b.ay, b.by);
+    go({ r0: toR(xa), r1: toR(xb), x0: toX(yb), x1: toX(ya) });
+  });
+  let wheelTimer;
+  ov.addEventListener('wheel', e => {
+    e.preventDefault();
+    const p = pos(e), k = Math.exp(e.deltaY * 0.0015), r = toR(p.x), x = toX(p.y);
+    if (!wheelTimer) history_.push(view);
+    view = { r0: r - (r - view.r0) * k, r1: r + (view.r1 - r) * k, x0: x - (x - view.x0) * k, x1: x + (view.x1 - x) * k };
+    view.x0 = Math.max(-0.05, view.x0); view.x1 = Math.min(1.05, view.x1);
+    diving = false; invalidate(); updateWhere();
+    clearTimeout(wheelTimer); wheelTimer = setTimeout(() => { wheelTimer = null; sync(); }, 300);
+  }, { passive: false });
+  ov.addEventListener('dblclick', () => go(HOME));
+
+  const panel = UI.panel($('panel'));
+  for (const name in VIEWS) { const b = document.createElement('button'); b.textContent = name; b.onclick = () => go({ ...VIEWS[name] }); $('presets').appendChild(b); }
+  const startDive = () => { if (!diving) { history_.push(view); view = { ...VIEWS['Period doubling'] }; diving = true; } else diving = false; };
+  $('dive').onclick = startDive;
+  $('back').onclick = () => history_.length && go(history_.pop(), false);
+  $('home').onclick = () => go({ ...HOME });
+  const c = $('controls');
+  UI.slider(c, { label: 'Detail', min: 100, max: 3000, step: 50, value: P.detail, format: v => `${v} iterations`, onInput: v => { P.detail = v; invalidate(); sync(); } });
+  UI.slider(c, { label: 'Contrast', min: 0.15, max: 1.5, step: 0.01, value: P.contrast, format: v => v.toFixed(2), onInput: v => { P.contrast = v; paint(); sync(); } });
+  const exp = UI.exportSection($('export'), { canvas, name: 'logistic-map', title: 'The Logistic Map' });
+  addEventListener('keydown', e => {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.metaKey || e.ctrlKey) return;
+    if (e.key === 's') exp.save();
+    else if (e.key === 'v') exp.clip();
+    else if (e.key === 'd') startDive();
+    else if (e.key === 'b') $('back').click();
+    else if (e.key === 'h') panel.toggle();
+  });
+  function sync() {
+    const s = new URLSearchParams();
+    for (const k of ['r0', 'r1', 'x0', 'x1']) s.set(k, view[k].toPrecision(15));
+    s.set('detail', P.detail); s.set('contrast', P.contrast);
+    history.replaceState(null, '', '?' + s);
+  }
+})();
+</script>
+</body>
+</html>

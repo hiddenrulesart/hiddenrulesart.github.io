@@ -2,82 +2,67 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%2305050a'/%3E%3Cpath d='M16 6 L9 16 L20 25' stroke='white' stroke-width='2.2' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='16' cy='6' r='2' fill='white'/%3E%3Ccircle cx='20' cy='25' r='3.4' fill='%239f8cff'/%3E%3C/svg%3E">
 <title>Double Pendulum Chaos</title>
+<meta name="description" content="1,000 pendulums start a hair apart, then split into a rainbow. An interactive demo of chaos.">
+<meta property="og:title" content="Double Pendulum Chaos">
+<meta property="og:description" content="1,000 pendulums start a hair apart, then split into a rainbow. An interactive demo of chaos.">
+<meta property="og:image" content="https://sirdevelop.github.io/generativeArt/assets/thumbs/double-pendulum.jpg">
+<meta property="og:url" content="https://sirdevelop.github.io/generativeArt/pieces/double-pendulum/">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="stylesheet" href="../../lib/ui.css">
 <style>
-  :root { --bg: #05050a; --fg: #e8e8f0; --muted: #8a8aa0; --panel: rgba(16,16,28,.82); --line: rgba(255,255,255,.12); --accent: #9f8cff; }
-  * { box-sizing: border-box; }
-  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg); overflow: hidden;
-    font: 14px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; }
-  canvas { display: block; width: 100vw; height: 100vh; touch-action: none; cursor: grab; }
-  canvas:active { cursor: grabbing; }
-  #panel { position: fixed; top: 16px; right: 16px; width: 260px; max-width: calc(100vw - 32px);
-    background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px;
-    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
-  #panel.hidden { display: none; }
-  #panel h1 { font-size: 15px; margin: 0 0 2px; font-weight: 600; }
-  #panel p.sub { margin: 0 0 12px; color: var(--muted); font-size: 12px; }
-  label { display: block; margin: 10px 0 2px; font-size: 12px; color: var(--muted); }
-  label output { float: right; color: var(--fg); font-variant-numeric: tabular-nums; }
-  input[type=range] { width: 100%; accent-color: var(--accent); }
-  .row { display: flex; gap: 6px; margin-top: 14px; flex-wrap: wrap; }
-  button { flex: 1; background: rgba(255,255,255,.08); color: var(--fg); border: 1px solid var(--line);
-    border-radius: 8px; padding: 7px 8px; font: inherit; font-size: 12px; cursor: pointer; }
-  button:hover { background: rgba(255,255,255,.16); }
-  .hint { margin-top: 12px; color: var(--muted); font-size: 11px; }
-  #show { position: fixed; top: 16px; right: 16px; display: none; }
-  #show.visible { display: block; }
-  #toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--panel);
-    border: 1px solid var(--line); padding: 8px 14px; border-radius: 8px; opacity: 0; transition: opacity .3s; pointer-events: none; }
-  body.record #panel, body.record #show, body.record #toast { display: none !important; }
-  body.record canvas { width: auto; height: auto; cursor: default; }
+  canvas.stage { cursor: grab; } canvas.stage:active { cursor: grabbing; }
+  body.record canvas.stage { width: auto; height: auto; cursor: default; }
+  body.record .panel, body.record .fab, body.record .back { display: none !important; }
 </style>
 </head>
 <body>
-<canvas id="c"></canvas>
+<canvas id="c" class="stage"></canvas>
+<a class="back" href="../../">← All pieces</a>
 
-<div id="panel">
+<div id="panel" class="panel">
   <h1>Double Pendulum Chaos</h1>
   <p class="sub">Pendulums that start almost identically. Drag on the canvas to lift them, then let go.</p>
 
-  <label>Pendulums <output id="nOut"></output></label>
-  <input id="n" type="range" min="1" max="5" step="1">
+  <div class="section-title">Presets</div>
+  <div class="chips" id="presets"></div>
+  <div class="row"><button id="random">🎲 Surprise me</button></div>
 
-  <label>Starting difference <output id="spreadOut"></output></label>
-  <input id="spread" type="range" min="-12" max="0" step="1">
-
-  <label>Trails <output id="trailOut"></output></label>
-  <input id="trail" type="range" min="0" max="0.95" step="0.05">
-
-  <label>Brightness <output id="glowOut"></output></label>
-  <input id="glow" type="range" min="0.02" max="1" step="0.01">
-
-  <label>Speed <output id="speedOut"></output></label>
-  <input id="speed" type="range" min="0.1" max="3" step="0.1">
-
+  <div class="section" id="controls"><div class="section-title">Tweak</div></div>
   <div class="row">
     <button id="restart">Restart</button>
     <button id="pause">Pause</button>
   </div>
-  <div class="row">
-    <button id="share">Copy link</button>
-    <button id="save">Save image</button>
+
+  <div id="export"></div>
+
+  <div class="section">
+    <div class="section-title">The story</div>
+    <p class="story">A double pendulum follows simple, exact physics, with no randomness at all. Yet if two
+      start a billionth of a degree apart, they soon do completely different things. That sensitivity
+      is called <b>chaos</b>, and it's why weather can't be forecast more than about two weeks ahead.
+      The colours show each pendulum's starting position: when the rainbow appears, you're watching
+      invisible differences become visible.</p>
   </div>
-  <div class="row">
-    <button id="hide">Hide panel</button>
-  </div>
-  <div class="hint">Space pause · R restart · S save image · H hide panel · O text overlay</div>
+  <div class="hintkeys">Space pause · R restart · S save · V record clip · H hide panel · O text overlay</div>
 </div>
-<button id="show">Controls</button>
-<div id="toast"></div>
 
 <script src="sim.js"></script>
 <script src="render.js"></script>
+<script src="../../lib/ui.js"></script>
 <script>
 (() => {
   'use strict';
   const COUNTS = [1, 10, 100, 1000, 3000, 10000];
+  const PRESETS = {
+    'Classic':       { n: 1000,  a1: 150, a2: 150, spread: 1e-5, trail: 0.6,  glow: 0.35, speed: 1 },
+    'Rainbow bloom': { n: 3000,  a1: 120, a2: 170, spread: 1e-5, trail: 0.85, glow: 0.2,  speed: 1 },
+    'Upright':       { n: 10000, a1: 179, a2: 179, spread: 1e-6, trail: 0.75, glow: 0.08, speed: 1 },
+    'Long trails':   { n: 1000,  a1: 90,  a2: 180, spread: 1e-5, trail: 0.92, glow: 0.35, speed: 1 },
+    'Slow motion':   { n: 3000,  a1: 140, a2: 160, spread: 1e-7, trail: 0.8,  glow: 0.2,  speed: 0.35 },
+  };
 
   // ---- parameters (URL-driven so links + the recorder reproduce a scene exactly)
   const q = new URLSearchParams(location.search);
@@ -115,14 +100,10 @@
     ctx.fillStyle = '#05050a'; ctx.fillRect(0, 0, W, H);
   }
 
-  // ---- drawing
   function draw() {
     const S = Math.min(W, H);
-    const L = S * 0.22, ox = W / 2, oy = H / 2;
-    const lw = Math.max(1, S / 900);
-
     PendulumRender.fade(ctx, W, H, P.trail);
-    PendulumRender.drawEnsemble(ctx, sim, { ox, oy, L, lw, glow: P.glow });
+    PendulumRender.drawEnsemble(ctx, sim, { ox: W / 2, oy: H / 2, L: S * 0.22, lw: Math.max(1, S / 900), glow: P.glow });
     if (P.overlay) drawOverlay(S);
   }
 
@@ -150,7 +131,7 @@
     draw();
   }
 
-  // ---- record mode: no animation loop; the recorder calls frame() once per video frame
+  // ---- record mode: no animation loop; tools/record.mjs calls frame() once per video frame
   if (P.record) {
     document.body.classList.add('record');
     resize(); restart(); draw();
@@ -165,20 +146,19 @@
   addEventListener('resize', resize);
   resize(); restart();
   let last = performance.now();
-  function loop(now) {
-    const dt = Math.min(0.05, (now - last) / 1000); last = now; // clamp so tab-switching doesn't jump
+  (function loop(now) {
+    const dt = Math.min(0.05, (now - last) / 1000); last = now;   // clamp so tab-switching doesn't jump
     if (!paused) frame(dt); else draw();
     requestAnimationFrame(loop);
-  }
-  requestAnimationFrame(loop);
+  })(last);
+  UI.hint('pendulum-drag', 'Drag anywhere to lift the pendulums, then let go');
 
   // drag to lift the pendulums: both arms point at the cursor
   function aim(e) {
     const r = canvas.getBoundingClientRect();
     const x = (e.clientX - r.left) / r.width * W - W / 2;
     const y = (e.clientY - r.top) / r.height * H - H / 2;
-    const deg = Math.atan2(x, y) * 180 / Math.PI;
-    P.a1 = P.a2 = Math.round(deg * 10) / 10;
+    P.a1 = P.a2 = Math.round(Math.atan2(x, y) * 1800 / Math.PI) / 10;
     restart();
   }
   canvas.addEventListener('pointerdown', e => { holding = true; canvas.setPointerCapture(e.pointerId); aim(e); });
@@ -189,62 +169,50 @@
 
   // ---- controls
   const $ = id => document.getElementById(id);
-  const panel = $('panel'), show = $('show');
-  function bind(id, toUi, fromUi, fmt, onChange) {
-    const el = $(id), out = $(id + 'Out');
-    el.value = toUi(P[id]); out.textContent = fmt(P[id]);
-    el.addEventListener('input', () => { P[id] = fromUi(+el.value); out.textContent = fmt(P[id]); onChange && onChange(); syncUrl(); });
-  }
+  const panel = UI.panel($('panel'));
+  const controls = $('controls');
   const nearestCount = v => COUNTS.reduce((best, c, i) => Math.abs(c - v) < Math.abs(COUNTS[best] - v) ? i : best, 0);
-  $('n').max = COUNTS.length - 1;
-  bind('n', nearestCount, i => COUNTS[i], v => v.toLocaleString(), restart);
-  bind('spread', v => Math.round(Math.log10(v)), v => 10 ** v, fmtDeg, restart);
-  bind('trail', v => v, v => v, v => v.toFixed(2));
-  bind('glow', v => v, v => v, v => v.toFixed(2));
-  bind('speed', v => v, v => v, v => v.toFixed(1) + '×');
+  const sliders = {
+    n: UI.slider(controls, { id: 'n', label: 'Pendulums', min: 0, max: COUNTS.length - 1, step: 1, value: P.n,
+      toUi: nearestCount, fromUi: i => COUNTS[i], format: v => v.toLocaleString(), onInput: v => { P.n = v; restart(); syncUrl(); } }),
+    spread: UI.slider(controls, { id: 'spread', label: 'Starting difference', min: -12, max: 0, step: 1, value: P.spread,
+      toUi: v => Math.round(Math.log10(v)), fromUi: v => 10 ** v, format: fmtDeg, onInput: v => { P.spread = v; restart(); syncUrl(); } }),
+    trail: UI.slider(controls, { id: 'trail', label: 'Trails', min: 0, max: 0.95, step: 0.01, value: P.trail,
+      format: v => v.toFixed(2), onInput: v => { P.trail = v; syncUrl(); } }),
+    glow: UI.slider(controls, { id: 'glow', label: 'Brightness', min: 0.02, max: 1, step: 0.01, value: P.glow,
+      format: v => v.toFixed(2), onInput: v => { P.glow = v; syncUrl(); } }),
+    speed: UI.slider(controls, { id: 'speed', label: 'Speed', min: 0.1, max: 3, step: 0.05, value: P.speed,
+      format: v => v.toFixed(2) + '×', onInput: v => { P.speed = v; syncUrl(); } }),
+  };
+  function apply(settings) {
+    Object.assign(P, settings);
+    for (const k in sliders) sliders[k].set(P[k]);
+    restart(); syncUrl();
+  }
+  for (const name in PRESETS) {
+    const b = document.createElement('button'); b.textContent = name;
+    b.onclick = () => apply(PRESETS[name]);
+    $('presets').appendChild(b);
+  }
+  $('random').onclick = () => {
+    const r = (a, b) => a + Math.random() * (b - a);
+    apply({ n: [1000, 3000, 3000, 10000][Math.floor(Math.random() * 4)], a1: Math.round(r(80, 180)), a2: Math.round(r(80, 180)),
+      spread: 10 ** -Math.round(r(4, 9)), trail: +r(0.5, 0.92).toFixed(2), glow: 0, speed: 1 });
+    P.glow = Math.min(0.5, 250 / P.n + 0.05); sliders.glow.set(P.glow); syncUrl();
+  };
+
+  const exp = UI.exportSection($('export'), { canvas, name: 'double-pendulum', title: 'Double Pendulum Chaos' });
 
   const togglePause = () => { paused = !paused; $('pause').textContent = paused ? 'Play' : 'Pause'; };
-  const toggleHide = () => { panel.classList.toggle('hidden'); show.classList.toggle('visible', panel.classList.contains('hidden')); };
   $('restart').onclick = restart;
   $('pause').onclick = togglePause;
-  $('hide').onclick = toggleHide;
-  show.onclick = toggleHide;
-  $('save').onclick = () => saveImage();
-
-  // Save the current frame (trails included) as a PNG at full canvas resolution,
-  // with a small signature so shared images lead back to the site.
-  function saveImage() {
-    const out = document.createElement('canvas');
-    out.width = W; out.height = H;
-    const o = out.getContext('2d');
-    o.drawImage(canvas, 0, 0);
-    const S = Math.min(W, H);
-    o.font = `500 ${Math.round(S * 0.016)}px system-ui, -apple-system, sans-serif`;
-    o.fillStyle = 'rgba(255,255,255,0.4)';
-    o.textAlign = 'right'; o.textBaseline = 'bottom';
-    o.fillText('sirdevelop.github.io/generativeArt', W - S * 0.025, H - S * 0.025);
-    out.toBlob(blob => {
-      if (!blob) { toast('Could not save image'); return; }
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = `double-pendulum-${sim.n}-${Date.now()}.png`;
-      document.body.appendChild(a); a.click(); a.remove();
-      setTimeout(() => URL.revokeObjectURL(a.href), 2000);
-      toast(`Saved ${W}×${H} image`);
-    }, 'image/png');
-  }
-
-  $('share').onclick = async () => {
-    syncUrl();
-    try { await navigator.clipboard.writeText(location.href); toast('Link copied'); }
-    catch { toast('Copy the address bar to share'); }
-  };
   addEventListener('keydown', e => {
-    if (e.target.tagName === 'INPUT') return;
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.metaKey || e.ctrlKey) return;
     if (e.code === 'Space') { e.preventDefault(); togglePause(); }
     else if (e.key === 'r') restart();
-    else if (e.key === 'h') toggleHide();
-    else if (e.key === 's') saveImage();
+    else if (e.key === 's') exp.save();
+    else if (e.key === 'v') exp.clip();
+    else if (e.key === 'h') panel.toggle();
     else if (e.key === 'o') { P.overlay = P.overlay ? 0 : 1; syncUrl(); }
   });
 
@@ -252,11 +220,6 @@
     const s = new URLSearchParams();
     for (const k of ['n', 'a1', 'a2', 'spread', 'trail', 'glow', 'speed', 'overlay']) s.set(k, P[k]);
     history.replaceState(null, '', '?' + s);
-  }
-  let toastTimer;
-  function toast(msg) {
-    const t = $('toast'); t.textContent = msg; t.style.opacity = 1;
-    clearTimeout(toastTimer); toastTimer = setTimeout(() => (t.style.opacity = 0), 1500);
   }
 })();
 </script>

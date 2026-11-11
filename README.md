@@ -1,5 +1,7 @@
 # Generative Art
 
+Live: https://sirdevelop.github.io/generativeArt/
+
 Interactive generative-art pieces that double as the source for YouTube videos.
 Each piece runs in the browser (play with it) and has a record mode that renders
 perfect frame-by-frame video.
@@ -10,6 +12,10 @@ Channel plan and idea backlog: [docs/channel-plan.md](docs/channel-plan.md)
 | Piece | Interactive | Notes |
 |---|---|---|
 | Double pendulum chaos | `pieces/double-pendulum/index.html` | 1000 pendulums starting 0.00001° apart |
+| Lorenz attractor | `pieces/lorenz/index.html` | butterfly effect; drag to rotate, live σ/ρ/β |
+| Logistic map | `pieces/logistic-map/index.html` | zoomable bifurcation diagram, "Dive into infinity" |
+
+Shared UI (export, share, record clip, presets, mobile layout): `lib/ui.js`, `lib/ui.css`.
 
 Open any `index.html` directly in a browser. No build step.
 
