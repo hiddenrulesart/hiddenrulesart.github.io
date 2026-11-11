@@ -15,7 +15,12 @@
 <style>
   #wrap { position: fixed; inset: 0; }
   #wrap canvas { position: absolute; inset: 0; width: 100vw; height: 100vh; }
-  #ov { cursor: crosshair; touch-action: none; }
+  #ov { cursor: grab; touch-action: none; }
+  #ov.grabbing { cursor: grabbing; } #ov.boxing { cursor: crosshair; }
+  .zoombar { position: fixed; left: 16px; top: 50%; transform: translateY(-50%); z-index: 8; display: flex; flex-direction: column; gap: 6px; }
+  .zoombar button { width: 42px; height: 42px; padding: 0; font-size: 20px; line-height: 1; background: var(--panel);
+    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+  body.record .zoombar { display: none !important; }
   body.record #wrap canvas { width: auto; height: auto; }
   body.record .panel, body.record .fab, body.record .back { display: none !important; }
   #eq { font: italic 15px "Times New Roman", serif; color: #fff; margin: 4px 0 8px; }
@@ -25,11 +30,13 @@
 <body>
 <div id="wrap"><canvas id="c"></canvas><canvas id="ov"></canvas></div>
 <a class="back" href="../../">← All pieces</a>
+<div class="zoombar"><button id="zin" title="Zoom in (+)" aria-label="Zoom in">+</button><button id="zout" title="Zoom out (−)" aria-label="Zoom out">−</button><button id="zhome" title="Reset view (0)" aria-label="Reset view">⌂</button></div>
 
 <div id="panel" class="panel">
   <h1>The Logistic Map</h1>
   <p class="sub">Each column is one growth rate <i>r</i>; the bright points are where the population ends up.
-    Drag a box to zoom, scroll to zoom, hover to see the population over time.</p>
+    Drag to move around, scroll or pinch to zoom, hover (or tap) to see the population over time.
+    The mini-map in the corner shows where you are.</p>
 
   <div class="section-title">Places to visit</div>
   <div class="chips" id="presets"></div>
@@ -53,7 +60,8 @@
       equations, and experiments later found it in real fluids. Zoom in anywhere chaotic and you'll find
       tiny copies of the whole picture.</p>
   </div>
-  <div class="hintkeys">S save · V record clip · D dive · B zoom back · H hide panel</div>
+  <div class="hintkeys">Drag move · scroll zoom · double-click zoom in · Shift-drag zoom box<br>
+    + / − zoom · 0 reset · arrows move · D dive · B back · S save · V clip · H hide panel</div>
 </div>
 
 <script src="../../lib/ui.js"></script>
@@ -150,8 +158,10 @@
     if (rw < 1e-11) diving = false;   // limit of double precision
   }
 
+  let busyUntil = 0, moved = true;   // while panning/zooming, draw quick low-detail previews
   function frame(dt) {
     if (diving) { diveStep(dt); invalidate(); pass(Math.round(P.detail * 0.6)); pass(Math.round(P.detail * 0.6)); paint(); updateWhere(); }
+    else if (moved && performance.now() < busyUntil) { moved = false; invalidate(); pass(Math.round(P.detail * 0.3)); paint(); }
     else if (passes < 10) { pass(P.detail); paint(); }
   }
 
@@ -163,9 +173,63 @@
     return;
   }
 
-  // ---- overlay: axis labels, hover probe, zoom box
-  let hover = null, box = null;
+  // ---- view helpers
+  const R_MIN = 0, R_MAX = 4, X_MIN = -0.05, X_MAX = 1.05;
+  function clampView(v) {
+    const rs = Math.min(v.r1 - v.r0, R_MAX - R_MIN), xs = Math.min(v.x1 - v.x0, X_MAX - X_MIN);
+    let r0 = Math.min(Math.max(v.r0, R_MIN), R_MAX - rs), x0 = Math.min(Math.max(v.x0, X_MIN), X_MAX - xs);
+    return { r0, r1: r0 + rs, x0, x1: x0 + xs };
+  }
+  // change the view during an interaction (quick previews, URL synced when things settle)
+  let syncTimer;
+  function setView(v) {
+    view = clampView(v); diving = false; moved = true; busyUntil = performance.now() + 180;
+    updateWhere(); clearTimeout(syncTimer); syncTimer = setTimeout(sync, 300);
+  }
   const toR = px => view.r0 + px / W * (view.r1 - view.r0), toX = py => view.x1 - py / H * (view.x1 - view.x0);
+  function zoomAt(px, py, k) {   // k < 1 zooms in, keeping the point under the cursor fixed
+    const r = toR(px), x = toX(py);
+    setView({ r0: r - (r - view.r0) * k, r1: r + (view.r1 - r) * k, x0: x - (x - view.x0) * k, x1: x + (view.x1 - x) * k });
+  }
+  function animateZoom(px, py, k, ms = 260) {   // smooth zoom for buttons / double-click
+    history_.push(view);
+    const t0 = performance.now(), v0 = view, r = toR(px), x = toX(py);
+    (function step(now) {
+      const u = Math.min(1, (now - t0) / ms), e = u * u * (3 - 2 * u), kk = Math.pow(k, e);
+      setView({ r0: r - (r - v0.r0) * kk, r1: r + (v0.r1 - r) * kk, x0: x - (x - v0.x0) * kk, x1: x + (v0.x1 - x) * kk });
+      if (u < 1) requestAnimationFrame(step);
+    })(t0);
+  }
+
+  // ---- mini-map: the whole shape, with a rectangle showing the current view
+  const MINI = { r0: 1, r1: 4, x0: 0, x1: 1 };
+  const mini = document.createElement('canvas'), mctx = mini.getContext('2d');
+  let mm = { x: 0, y: 0, w: 0, h: 0 };
+  function buildMini() {
+    const f = dpr, small = innerWidth < 640;
+    mm = { x: 12 * f, y: 12 * f, w: (small ? 150 : 210) * f, h: (small ? 84 : 118) * f };
+    mini.width = Math.round(mm.w); mini.height = Math.round(mm.h);
+    const w = mini.width, h = mini.height, cnt = new Float32Array(w * h), im = mctx.createImageData(w, h);
+    for (let col = 0; col < w; col++) {
+      const r = MINI.r0 + (col + 0.5) / w * (MINI.r1 - MINI.r0); let x = 0.4;
+      for (let i = 0; i < 400; i++) x = r * x * (1 - x);
+      for (let i = 0; i < 400; i++) { x = r * x * (1 - x); cnt[((1 - x) * (h - 1) | 0) * w + col]++; }
+    }
+    for (let i = 0; i < w * h; i++) {
+      const v = cnt[i] ? Math.min(255, 70 + 40 * Math.log(1 + cnt[i])) : 0;
+      im.data[4 * i] = v; im.data[4 * i + 1] = v * 0.75; im.data[4 * i + 2] = v * 0.55 + 10; im.data[4 * i + 3] = 255;
+    }
+    mctx.putImageData(im, 0, 0);
+  }
+  const inMini = p => p.x >= mm.x && p.x <= mm.x + mm.w && p.y >= mm.y && p.y <= mm.y + mm.h;
+  function miniJump(p) {   // centre the view on the clicked point of the mini-map
+    const r = MINI.r0 + (p.x - mm.x) / mm.w * (MINI.r1 - MINI.r0), x = MINI.x1 - (p.y - mm.y) / mm.h * (MINI.x1 - MINI.x0);
+    const rs = view.r1 - view.r0, xs = view.x1 - view.x0;
+    setView({ r0: r - rs / 2, r1: r + rs / 2, x0: x - xs / 2, x1: x + xs / 2 });
+  }
+
+  // ---- overlay: mini-map, axis label, hover probe, zoom box
+  let hover = null, box = null, drag = null;
   function classify(r) {
     let x = 0.2; for (let i = 0; i < 4000; i++) x = r * x * (1 - x);
     const s = []; for (let i = 0; i < 70; i++) { x = r * x * (1 - x); s.push(x); }
@@ -182,22 +246,34 @@
   const digits = () => Math.max(3, Math.ceil(-Math.log10(view.r1 - view.r0)) + 3);
   function drawOverlay() {
     octx.clearRect(0, 0, W, H);
-    const f = dpr, fs = 12 * f;
-    octx.font = `${fs}px system-ui, sans-serif`; octx.fillStyle = 'rgba(255,255,255,0.5)'; octx.textBaseline = 'top';
-    const d = digits();   // axis labels at the top, clear of the buttons along the bottom
-    octx.textAlign = 'left'; octx.fillText(`r = ${view.r0.toFixed(d)}`, 12 * f, 12 * f);
-    octx.textAlign = 'center'; octx.fillText(`r = ${((view.r0 + view.r1) / 2).toFixed(d)}`, W / 2, 12 * f);
+    const f = dpr, d = digits();
+    // mini-map
+    octx.fillStyle = 'rgba(16,16,28,0.85)'; octx.fillRect(mm.x - 4 * f, mm.y - 4 * f, mm.w + 8 * f, mm.h + 8 * f);
+    octx.drawImage(mini, mm.x, mm.y, mm.w, mm.h);
+    const vx0 = mm.x + (view.r0 - MINI.r0) / (MINI.r1 - MINI.r0) * mm.w, vx1 = mm.x + (view.r1 - MINI.r0) / (MINI.r1 - MINI.r0) * mm.w;
+    const vy0 = mm.y + (MINI.x1 - view.x1) / (MINI.x1 - MINI.x0) * mm.h, vy1 = mm.y + (MINI.x1 - view.x0) / (MINI.x1 - MINI.x0) * mm.h;
+    octx.save(); octx.beginPath(); octx.rect(mm.x, mm.y, mm.w, mm.h); octx.clip();
+    octx.strokeStyle = '#9f8cff'; octx.lineWidth = 2 * f;
+    const rw = Math.max(vx1 - vx0, 4 * f), rh = Math.max(vy1 - vy0, 4 * f);
+    octx.strokeRect((vx0 + vx1) / 2 - rw / 2, (vy0 + vy1) / 2 - rh / 2, rw, rh);
+    if (vx1 - vx0 < 10 * f) {   // deep zoom: crosshair so you can still see where you are
+      const cx = (vx0 + vx1) / 2, cy = (vy0 + vy1) / 2;
+      octx.lineWidth = f; octx.beginPath(); octx.moveTo(cx, mm.y); octx.lineTo(cx, mm.y + mm.h); octx.moveTo(mm.x, cy); octx.lineTo(mm.x + mm.w, cy); octx.stroke();
+    }
+    octx.restore();
+    octx.font = `${11 * f}px system-ui, sans-serif`; octx.fillStyle = 'rgba(255,255,255,0.55)'; octx.textAlign = 'left'; octx.textBaseline = 'top';
+    octx.fillText(`r ${view.r0.toFixed(d)} – ${view.r1.toFixed(d)}`, mm.x, mm.y + mm.h + 8 * f);
     if (box) {
       octx.strokeStyle = 'rgba(255,255,255,0.9)'; octx.lineWidth = f; octx.setLineDash([5 * f, 4 * f]);
       octx.strokeRect(Math.min(box.ax, box.bx), Math.min(box.ay, box.by), Math.abs(box.bx - box.ax), Math.abs(box.by - box.ay));
       octx.setLineDash([]);
     }
-    if (!hover || diving) return;
+    if (!hover || diving || drag) return;
     const r = toR(hover.x);
     octx.strokeStyle = 'rgba(255,255,255,0.35)'; octx.lineWidth = f;
     octx.beginPath(); octx.moveTo(hover.x, 0); octx.lineTo(hover.x, H); octx.stroke();
     // inset: population over time at this r
-    const iw = Math.min(380 * f, W - 32 * f), ih = 150 * f, ix = 16 * f, iy = H - ih - 40 * f;
+    const iw = Math.min(380 * f, W - 32 * f), ih = 150 * f, ix = 16 * f, iy = H - ih - 56 * f;
     octx.fillStyle = 'rgba(16,16,28,0.9)'; octx.strokeStyle = 'rgba(255,255,255,0.15)';
     octx.beginPath(); octx.roundRect ? octx.roundRect(ix, iy, iw, ih, 10 * f) : octx.rect(ix, iy, iw, ih); octx.fill(); octx.stroke();
     octx.fillStyle = '#fff'; octx.textAlign = 'left'; octx.textBaseline = 'top'; octx.font = `600 ${13 * f}px system-ui, sans-serif`;
@@ -219,63 +295,82 @@
   }
   function go(v, push = true) {
     if (push) history_.push(view);
-    diving = false; view = v; invalidate(); updateWhere(); sync(); drawOverlay();
+    diving = false; view = clampView(v); invalidate(); updateWhere(); sync();
   }
 
-  addEventListener('resize', () => { resize(); drawOverlay(); });
-  resize(); updateWhere();
+  addEventListener('resize', () => { resize(); buildMini(); });
+  resize(); buildMini(); updateWhere();
   let last = performance.now();
   (function loop(now) {
     const dt = Math.min(0.05, (now - last) / 1000); last = now;
-    frame(dt);
-    if (diving || box || hover) drawOverlay();
+    frame(dt); drawOverlay();
     requestAnimationFrame(loop);
   })(last);
-  UI.hint('logistic-zoom', matchMedia('(pointer: coarse)').matches ? 'Drag a box or pinch to zoom · tap to see what the population does' : 'Drag a box to zoom in · hover to see what the population does');
+  UI.hint('logistic-nav', matchMedia('(pointer: coarse)').matches
+    ? 'Drag to move · pinch or double-tap to zoom · tap to see what the population does'
+    : 'Drag to move · scroll to zoom · hover to see what the population does');
 
+  // ---- pointer input: drag = pan, two fingers = pinch zoom, Shift-drag = zoom box, tap = probe,
+  //      mini-map = jump. Wheel zooms at the cursor; double-click zooms in.
   const pos = e => { const r = ov.getBoundingClientRect(); return { x: (e.clientX - r.left) / r.width * W, y: (e.clientY - r.top) / r.height * H }; };
-  // one finger/mouse: drag a box to zoom (or tap to probe); two fingers: pinch to zoom
-  const touches = new Map(); let pinch = null;
-  const zoomAt = (px, py, k) => {
-    const r = toR(px), x = toX(py);
-    view = { r0: r - (r - view.r0) * k, r1: r + (view.r1 - r) * k, x0: x - (x - view.x0) * k, x1: x + (view.x1 - x) * k };
-    view.x0 = Math.max(-0.05, view.x0); view.x1 = Math.min(1.05, view.x1);
-    diving = false; invalidate(); updateWhere();
-  };
+  const touches = new Map(); let pinch = null, lastTap = null;
   const pinchState = () => { const [a, b] = [...touches.values()]; return { d: Math.hypot(a.x - b.x, a.y - b.y), x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }; };
   ov.addEventListener('pointerdown', e => {
     ov.setPointerCapture(e.pointerId); const p = pos(e); touches.set(e.pointerId, p);
-    if (touches.size === 2) { box = null; history_.push(view); pinch = pinchState(); return; }
-    box = { ax: p.x, ay: p.y, bx: p.x, by: p.y }; diving = false;
+    if (touches.size === 2) { drag = null; box = null; history_.push(view); pinch = pinchState(); return; }
+    if (inMini(p)) { history_.push(view); drag = { mode: 'mini' }; miniJump(p); return; }
+    if (e.shiftKey) { box = { ax: p.x, ay: p.y, bx: p.x, by: p.y }; ov.classList.add('boxing'); return; }
+    drag = { mode: 'pan', sx: p.x, sy: p.y, v0: view, pushed: false };
+    ov.classList.add('grabbing');
   });
   ov.addEventListener('pointermove', e => {
-    const p = pos(e); hover = p;
+    const p = pos(e);
+    if (e.pointerType === 'mouse') hover = p;
     if (touches.has(e.pointerId)) touches.set(e.pointerId, p);
     if (pinch && touches.size >= 2) { const s = pinchState(); zoomAt(s.x, s.y, pinch.d / s.d); pinch = s; return; }
-    if (box) { box.bx = p.x; box.by = p.y; }
+    if (box) { box.bx = p.x; box.by = p.y; return; }
+    if (!drag) { ov.style.cursor = inMini(p) ? 'pointer' : ''; return; }
+    if (drag.mode === 'mini') { miniJump(p); return; }
+    const dx = p.x - drag.sx, dy = p.y - drag.sy;
+    if (!drag.pushed && Math.hypot(dx, dy) > 4 * dpr) { history_.push(drag.v0); drag.pushed = true; }
+    if (drag.pushed) {
+      const v = drag.v0, kr = (v.r1 - v.r0) / W, kx = (v.x1 - v.x0) / H;
+      setView({ r0: v.r0 - dx * kr, r1: v.r1 - dx * kr, x0: v.x0 + dy * kx, x1: v.x1 + dy * kx });
+    }
   });
-  ov.addEventListener('pointercancel', e => { touches.delete(e.pointerId); box = null; pinch = null; });
-  ov.addEventListener('pointerleave', () => { hover = null; drawOverlay(); });
-  ov.addEventListener('pointerup', e => {
-    touches.delete(e.pointerId);
-    if (pinch) { if (touches.size < 2) { pinch = null; sync(); } return; }
-    if (!box) return;
-    const b = box; box = null;
-    if (Math.abs(b.bx - b.ax) < 8 * dpr || Math.abs(b.by - b.ay) < 8 * dpr) { hover = pos(e); drawOverlay(); return; }   // a tap: just probe
-    const xa = Math.min(b.ax, b.bx), xb = Math.max(b.ax, b.bx), ya = Math.min(b.ay, b.by), yb = Math.max(b.ay, b.by);
-    go({ r0: toR(xa), r1: toR(xb), x0: toX(yb), x1: toX(ya) });
-  });
-  let wheelTimer;
+  const end = e => {
+    const p = pos(e); touches.delete(e.pointerId); ov.classList.remove('grabbing', 'boxing');
+    if (pinch) { if (touches.size < 2) pinch = null; return; }
+    if (box) {
+      const b = box; box = null;
+      if (Math.abs(b.bx - b.ax) > 8 * dpr && Math.abs(b.by - b.ay) > 8 * dpr) {
+        const xa = Math.min(b.ax, b.bx), xb = Math.max(b.ax, b.bx), ya = Math.min(b.ay, b.by), yb = Math.max(b.ay, b.by);
+        go({ r0: toR(xa), r1: toR(xb), x0: toX(yb), x1: toX(ya) });
+      }
+      return;
+    }
+    if (drag && drag.mode === 'pan' && !drag.pushed) {   // a tap/click without moving
+      const now = performance.now();
+      if (lastTap && now - lastTap.t < 350 && Math.hypot(p.x - lastTap.x, p.y - lastTap.y) < 30 * dpr) {
+        lastTap = null; animateZoom(p.x, p.y, 0.5);        // double-click / double-tap: zoom in here
+      } else { lastTap = { t: now, x: p.x, y: p.y }; hover = p; }   // single: probe here
+    }
+    drag = null;
+  };
+  ov.addEventListener('pointerup', end);
+  ov.addEventListener('pointercancel', e => { touches.delete(e.pointerId); pinch = null; drag = null; box = null; ov.classList.remove('grabbing', 'boxing'); });
+  ov.addEventListener('pointerleave', e => { if (e.pointerType === 'mouse' && !drag) hover = null; });
+  let wheelPushed = 0;
   ov.addEventListener('wheel', e => {
     e.preventDefault();
-    const p = pos(e), k = Math.exp(e.deltaY * 0.0015), r = toR(p.x), x = toX(p.y);
-    if (!wheelTimer) history_.push(view);
-    view = { r0: r - (r - view.r0) * k, r1: r + (view.r1 - r) * k, x0: x - (x - view.x0) * k, x1: x + (view.x1 - x) * k };
-    view.x0 = Math.max(-0.05, view.x0); view.x1 = Math.min(1.05, view.x1);
-    diving = false; invalidate(); updateWhere();
-    clearTimeout(wheelTimer); wheelTimer = setTimeout(() => { wheelTimer = null; sync(); }, 300);
+    if (performance.now() - wheelPushed > 600) history_.push(view);
+    wheelPushed = performance.now();
+    const p = pos(e);
+    zoomAt(p.x, p.y, Math.exp(e.deltaY * (e.ctrlKey ? 0.01 : 0.0015)));   // ctrlKey = trackpad pinch
   }, { passive: false });
-  ov.addEventListener('dblclick', () => go(HOME));
+  $('zin').onclick = () => animateZoom(W / 2, H / 2, 0.5);
+  $('zout').onclick = () => animateZoom(W / 2, H / 2, 2);
+  $('zhome').onclick = () => go({ ...HOME });
 
   const panel = UI.panel($('panel'));
   for (const name in VIEWS) { const b = document.createElement('button'); b.textContent = name; b.onclick = () => go({ ...VIEWS[name] }); $('presets').appendChild(b); }
@@ -294,6 +389,15 @@
     else if (e.key === 'd') startDive();
     else if (e.key === 'b') $('back').click();
     else if (e.key === 'h') panel.toggle();
+    else if (e.key === '+' || e.key === '=') animateZoom(W / 2, H / 2, 0.5);
+    else if (e.key === '-' || e.key === '_') animateZoom(W / 2, H / 2, 2);
+    else if (e.key === '0') go({ ...HOME });
+    else if (e.key.startsWith('Arrow')) {
+      e.preventDefault();
+      const kr = (view.r1 - view.r0) * 0.15, kx = (view.x1 - view.x0) * 0.15;
+      const d = { ArrowLeft: [-kr, 0], ArrowRight: [kr, 0], ArrowUp: [0, kx], ArrowDown: [0, -kx] }[e.key];
+      setView({ r0: view.r0 + d[0], r1: view.r1 + d[0], x0: view.x0 + d[1], x1: view.x1 + d[1] });
+    }
   });
   function sync() {
     const s = new URLSearchParams();

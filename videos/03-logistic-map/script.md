@@ -67,9 +67,9 @@ one way and two point five the other, and you get the same picture back. Forever
 more than a billion times, and the rabbits still haven't run out of copies.
 
 ### 8. Website (4:35–4:55)
-**VISUAL:** Website capture: drag-box zoom, hover inset, "Dive into infinity" button. URL on screen.
+**VISUAL:** Website capture: dragging around, scroll/pinch zoom, the mini-map, hover inset, "Dive into infinity" button. URL on screen.
 **VO:** You can explore it yourself, link in the description. Hover over any column to see what the
-rabbits are doing, and drag a box to zoom in as far as you like.
+rabbits are doing, and zoom in as far as you like.
 
 ### 9. Cliffhanger (4:55–5:15)
 **VISUAL:** Three glowing planets orbiting each other in a tangled dance, then one gets flung away.
