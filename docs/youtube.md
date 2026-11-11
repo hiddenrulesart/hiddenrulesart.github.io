@@ -105,7 +105,11 @@ Narration voice generated with ElevenLabs.
 
 ## Upload checklist
 - Add each episode to **Season 1: Chaos** (and episode 1 to **Start Here**).
-- End screen (last ~20 s): "next episode" video element + subscribe element.
+- **End screen** (last 20 s): Video element on the **left** + Subscribe element on the **right**, small, never over the
+  art in the centre. Video element = "Best for viewer" until the next episode is out, then switch it to that episode.
+- **Cards:** one only, near the end (episode 1: ~4:51, on "In 1961, a meteorologist…"), linking the next episode
+  (or the season playlist until it exists). No mid-video cards. (External website cards need the Partner Program.)
+- Publish consecutive episodes within about a week, and update the previous episode's end screen + card the same day.
 - Pin a comment with the play-it-yourself link.
 - Altered or synthetic content: the narration voice is synthetic but the content is not realistic footage of
   real people or events; the description already discloses the AI voice.

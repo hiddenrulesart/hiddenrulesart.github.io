@@ -54,7 +54,7 @@ Scene.run(({ ctx, W, H, S, num, fps }) => {
       if (fi > 0) { ctx.fillStyle = `rgba(5,5,10,${fi})`; ctx.fillRect(0, 0, W, H); }
       const k = Scene.smooth((t - nextAt) / 1);
       Scene.text(ctx, 'NEXT EPISODE', W / 2, H * 0.1, { size: S * 0.024, weight: 600, alpha: k * 0.6, tracking: S * 0.004 });
-      Scene.text(ctx, 'The Shape of Chaos', W / 2, H * 0.1 + S * 0.06, { size: S * 0.05, weight: 700, alpha: k, shadow: true });
+      Scene.text(ctx, 'The Butterfly Effect', W / 2, H * 0.1 + S * 0.06, { size: S * 0.05, weight: 700, alpha: k, shadow: true });
     },
   };
 });
