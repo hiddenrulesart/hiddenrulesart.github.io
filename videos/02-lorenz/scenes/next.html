@@ -34,7 +34,7 @@ Scene.run(({ ctx, W, H, S, num }) => {
         pts.forEach((p, i) => { ctx.beginPath(); ctx.arc(x0 + (x1 - x0) * i / (n - 1), y1 - (y1 - y0) * p, S * 0.005, 0, 7); ctx.fill(); });
         ctx.globalAlpha = 1;
         text(ctx, 'rabbits', x0 - S * 0.02, y0 - S * 0.03, { size: S * 0.026, weight: 500, align: 'left', alpha: ga * 0.6 });
-        text(ctx, 'years →', x1, y1 + S * 0.05, { size: S * 0.026, weight: 400, align: 'right', alpha: ga * 0.5 });
+        text(ctx, 'years', x1, y1 + S * 0.05, { size: S * 0.026, weight: 400, align: 'right', alpha: ga * 0.5 });
         text(ctx, `growth rate r = ${r.toFixed(2)}`, W / 2, H * 0.12, { size: S * 0.04, weight: 600, font: 'ui-monospace, Menlo, monospace', alpha: ga * smooth(t / 0.6) });
       }
 

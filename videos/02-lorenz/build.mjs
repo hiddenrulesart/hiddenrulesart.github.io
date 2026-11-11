@@ -97,7 +97,7 @@ const SCENES = [
     args: c => ens({ n: 1000, a1: 150, a2: 150, spread: 1e-5, preroll: f(splitTime(150, 150, 1e-5) - 1.5, 4), cap1: 'Episode 1',
       cap2: '1,000 pendulums', textOut: f(c.d('callback') * 0.45, 2), trail: 0.7 }) },
   { key: 'story', page: 'printout', voice: [['story1', 0.6], ['story2', 0.5], ['story3', 0.6]], tail: 2,
-    args: c => ens({ typeAt: f(c.end('story1') - 1.4, 2), storedAt: f(c.at('story2') + 0.4, 2), coffeeAt: f(c.end('story2') - 1.2, 2),
+    args: c => ens({ typeAt: f(c.end('story1') - 1.4, 2), storedAt: f(c.at('story2') + 0.4, 2),
       plotAt: f(c.at('story3'), 2), plotEnd: f(c.end('story3') - 2.5, 2), gapAt: f(c.end('story3') - 3.5, 2) }) },
   { key: 'equations', page: 'equations', voice: [['eq1', 0.6], ['eq2', 0.5]], tail: 1.2,
     args: c => ens({ eqAt: f(c.at('eq1') + c.d('eq1') * 0.7, 2), xAt: f(c.at('eq2'), 2), yzAt: f(c.at('eq2') + c.d('eq2') * 0.18, 2),

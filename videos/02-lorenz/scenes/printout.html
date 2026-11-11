@@ -5,9 +5,9 @@
 <script>
 // Scene 3: Lorenz's 1961 re-run. The typed-in number (0.506) vs the stored one (0.506127),
 // then two runs of the Lorenz system that start 0.000127 apart: identical at first, then nothing alike.
-// Cues: typeAt, storedAt, coffeeAt, plotAt, plotEnd, gapAt, duration.
+// Cues: typeAt, storedAt, plotAt, plotEnd, gapAt, duration.
 Scene.run(({ ctx, W, H, S, num }) => {
-  const duration = num('duration', 40), typeAt = num('typeAt', 5), storedAt = num('storedAt', 9), coffeeAt = num('coffeeAt', 13);
+  const duration = num('duration', 40), typeAt = num('typeAt', 5), storedAt = num('storedAt', 9);
   const plotAt = num('plotAt', 16), plotEnd = num('plotEnd', 30), gapAt = num('gapAt', 29);
   const { smooth, text } = Scene;
   const MONO = 'ui-monospace, Menlo, "Courier New", monospace';
@@ -58,11 +58,7 @@ Scene.run(({ ctx, W, H, S, num }) => {
         text(ctx, '0.506', vx, cy + S * 0.06 * sc, { size: S * 0.075 * sc, font: MONO, align: 'left', color: AMBER, alpha: st });
         const glow = 0.75 + 0.25 * Math.sin(t * 5);
         text(ctx, '127', vx + wHead, cy + S * 0.06 * sc, { size: S * 0.075 * sc, font: MONO, align: 'left', color: '#ff5d73', alpha: st * glow });
-        text(ctx, '← rounded away', vx + wHead * 1.75, cy + S * 0.06 * sc, { size: S * 0.028 * sc, weight: 500, align: 'left', color: '#ff8fa0', alpha: st * (1 - up) });
       }
-      // coffee break
-      const cf = Scene.window01(t, coffeeAt, plotAt - 0.2, 0.5, 0.5);
-      text(ctx, '☕  coffee break', W / 2, H * 0.78, { size: S * 0.04, weight: 500, alpha: cf * 0.8 });
 
       // the two runs
       const pa = smooth((t - plotAt) / 0.8);
@@ -72,7 +68,6 @@ Scene.run(({ ctx, W, H, S, num }) => {
         const m = Math.max(2, Math.floor(prog * N));
         ctx.globalAlpha = pa * 0.25; ctx.strokeStyle = '#fff'; ctx.lineWidth = 1;
         ctx.beginPath(); ctx.moveTo(x0, ym); ctx.lineTo(x1, ym); ctx.stroke(); ctx.globalAlpha = 1;
-        text(ctx, 'simulated weather →', x1, y1 + S * 0.035, { size: S * 0.024, weight: 400, align: 'right', alpha: pa * 0.5 });
         const trace = (arr, col, lw) => {
           ctx.globalAlpha = pa; ctx.strokeStyle = col; ctx.lineWidth = lw; ctx.lineJoin = 'round';
           ctx.beginPath();
