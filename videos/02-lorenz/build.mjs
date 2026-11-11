@@ -185,7 +185,14 @@ for (const s of SCENES) {
        '--w', 1920, '--h', 1080, '--scale', W / 1920, '--fps', FPS, '--seconds', f(s.dur), '--out', tmp]
     : [path.join(ROOT, 'tools/record.mjs'), page,
        '--w', W, '--h', H, '--fps', FPS, '--seconds', f(s.dur), '--duration', f(s.dur), '--out', tmp, ...s.extra];
-  const r = spawnSync('node', cmd.map(String), { cwd: ROOT, stdio: ['ignore', 'ignore', 'inherit'], env: { ...process.env, SCENE_CUES: s.cueJson || '{}' } });
+  // headless Chrome occasionally crashes partway through a long scene; retry the scene up to 3 times
+  let r;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    r = spawnSync('node', cmd.map(String), { cwd: ROOT, stdio: ['ignore', 'ignore', 'inherit'], env: { ...process.env, SCENE_CUES: s.cueJson || '{}' } });
+    if (r.status === 0 && fs.existsSync(tmp)) break;
+    fs.rmSync(tmp, { force: true });
+    if (attempt < 3) console.log(`  ${s.key}: render crashed, retrying (${attempt + 1}/3)`);
+  }
   if (r.status !== 0 || !fs.existsSync(tmp)) { fs.rmSync(tmp, { force: true }); throw new Error(`render ${s.key} failed`); }
   fs.renameSync(tmp, s.file);
 }
