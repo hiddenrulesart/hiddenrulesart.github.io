@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Lorenz teaser</title></head>
+<body>
+<script src="../../../lib/scene.js"></script>
+<script>
+// Scene 10b: the Lorenz attractor slowly drawing itself in the dark, rotating; "Next episode" card at nextAt.
+Scene.run(({ ctx, W, H, S, num, fps }) => {
+  const duration = num('duration', 20), nextAt = num('nextAt', 1e9);
+  const sigma = 10, rho = 28, beta = 8 / 3, h = 0.002;
+  let x = 0.1, y = 0, z = 0;
+  const pts = [];
+  function advance(steps) {
+    for (let i = 0; i < steps; i++) {               // RK4 on the Lorenz system
+      const f = (x, y, z) => [sigma * (y - x), x * (rho - z) - y, x * y - beta * z];
+      const k1 = f(x, y, z), k2 = f(x + h / 2 * k1[0], y + h / 2 * k1[1], z + h / 2 * k1[2]);
+      const k3 = f(x + h / 2 * k2[0], y + h / 2 * k2[1], z + h / 2 * k2[2]), k4 = f(x + h * k3[0], y + h * k3[1], z + h * k3[2]);
+      x += h / 6 * (k1[0] + 2 * k2[0] + 2 * k3[0] + k4[0]);
+      y += h / 6 * (k1[1] + 2 * k2[1] + 2 * k3[1] + k4[1]);
+      z += h / 6 * (k1[2] + 2 * k2[2] + 2 * k3[2] + k4[2]);
+      pts.push(x, y, z);
+    }
+  }
+  advance(400); pts.length = 0;   // skip the initial transient
+  const sc = S * 0.016, lw = Math.max(1, S / 1100);
+
+  return {
+    duration,
+    frame(t) {
+      advance(Math.round(14 + t * 3));                          // draws faster as it goes
+      const ang = 0.25 + t * 0.12, ca = Math.cos(ang), sa = Math.sin(ang);
+      ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
+      ctx.fillStyle = '#05050a'; ctx.fillRect(0, 0, W, H);
+      ctx.globalCompositeOperation = 'lighter'; ctx.lineWidth = lw; ctx.lineJoin = 'round';
+      const n = pts.length / 3, CH = 200;
+      for (let s = 0; s < n - 1; s += CH) {
+        const e = Math.min(n - 1, s + CH);
+        ctx.strokeStyle = `hsla(${20 + 30 * Math.sin(s / 2500)},95%,60%,0.55)`;
+        ctx.beginPath();
+        for (let i = s; i <= e; i++) {
+          const px = pts[3 * i] * ca - pts[3 * i + 1] * sa;
+          const sx = W / 2 + px * sc, sy = H * 0.5 - (pts[3 * i + 2] - 25) * sc;
+          i === s ? ctx.moveTo(sx, sy) : ctx.lineTo(sx, sy);
+        }
+        ctx.stroke();
+      }
+      // glowing head
+      const i = n - 1, px = pts[3 * i] * ca - pts[3 * i + 1] * sa;
+      ctx.fillStyle = 'rgba(255,220,180,0.9)';
+      ctx.beginPath(); ctx.arc(W / 2 + px * sc, H * 0.5 - (pts[3 * i + 2] - 25) * sc, lw * 3, 0, 7); ctx.fill();
+
+      // fade in from black, then the next-episode card
+      ctx.globalCompositeOperation = 'source-over';
+      const fi = 1 - Scene.smooth(t / 1.5);
+      if (fi > 0) { ctx.fillStyle = `rgba(5,5,10,${fi})`; ctx.fillRect(0, 0, W, H); }
+      const k = Scene.smooth((t - nextAt) / 1);
+      Scene.text(ctx, 'NEXT EPISODE', W / 2, H * 0.1, { size: S * 0.024, weight: 600, alpha: k * 0.6, tracking: S * 0.004 });
+      Scene.text(ctx, 'The Shape of Chaos', W / 2, H * 0.1 + S * 0.06, { size: S * 0.05, weight: 700, alpha: k, shadow: true });
+    },
+  };
+});
+</script>
+</body></html>

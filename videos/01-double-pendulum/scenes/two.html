@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Two pendulums</title></head>
+<body>
+<script src="../../../lib/scene.js"></script>
+<script src="../../../pieces/double-pendulum/sim.js"></script>
+<script>
+// Scene 6: two pendulums 1° apart, blue and orange, with a live "gap between the tips" counter.
+// At smaller1At / smaller2At the question "0.001°?" / "0.000001°?" appears.
+Scene.run(({ ctx, W, H, S, num, fps }) => {
+  const duration = num('duration', 28), s1 = num('smaller1At', 1e9), s2 = num('smaller2At', 1e9);
+  const sim = DoublePendulumSim.createSim({ n: 2 });
+  sim.reset(num('a', 120), num('a', 120), 1);   // offsets ±0.5° -> exactly 1° apart
+  const ox = W / 2, oy = H * 0.45, L = S * 0.2, lw = Math.max(1.5, S / 520);
+  const COLORS = ['hsl(210,95%,62%)', 'hsl(30,95%,58%)'];
+  const trails = [[], []];
+  const tip = i => [ox + L * (Math.sin(sim.th1[i]) + Math.sin(sim.th2[i])), oy + L * (Math.cos(sim.th1[i]) + Math.cos(sim.th2[i]))];
+
+  return {
+    duration,
+    frame(t, dt) {
+      if (t > 0.8) sim.step(dt, 8);            // hold still for a moment so you can see they overlap
+      ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
+      ctx.fillStyle = '#05050a'; ctx.fillRect(0, 0, W, H);
+      const fadeIn = Scene.smooth(t / 0.6);
+
+      ctx.globalCompositeOperation = 'lighter';
+      for (let i = 0; i < 2; i++) {
+        const tr = trails[i]; tr.push(...tip(i));
+        if (tr.length > fps * 2.5 * 2) tr.splice(0, 2);
+        ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+        for (let k = 2; k < tr.length; k += 2) {           // fading tip trail
+          ctx.strokeStyle = COLORS[i]; ctx.globalAlpha = fadeIn * 0.8 * (k / tr.length);
+          ctx.lineWidth = lw; ctx.beginPath(); ctx.moveTo(tr[k - 2], tr[k - 1]); ctx.lineTo(tr[k], tr[k + 1]); ctx.stroke();
+        }
+        const x1 = ox + L * Math.sin(sim.th1[i]), y1 = oy + L * Math.cos(sim.th1[i]), [x2, y2] = tip(i);
+        ctx.globalAlpha = fadeIn * 0.85; ctx.strokeStyle = COLORS[i]; ctx.lineWidth = lw * 1.8;
+        ctx.beginPath(); ctx.moveTo(ox, oy); ctx.lineTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+        ctx.fillStyle = COLORS[i]; ctx.beginPath(); ctx.arc(x2, y2, S * 0.014, 0, 7); ctx.fill();
+      }
+      ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = fadeIn;
+      ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(ox, oy, lw * 2.5, 0, 7); ctx.fill();
+      ctx.globalAlpha = 1;
+
+      // labels: arms are 1 m each, so tip distance in metres
+      const [ax, ay] = tip(0), [bx, by] = tip(1);
+      const gap = Math.hypot(ax - bx, ay - by) / L;
+      const gapTxt = gap < 1 ? `${(gap * 100).toFixed(1)} cm` : `${gap.toFixed(2)} m`;
+      Scene.text(ctx, '2 pendulums, 1° apart', W / 2, H * 0.08, { size: S * 0.04, alpha: fadeIn });
+      Scene.text(ctx, `gap between the tips: ${gapTxt}`, W / 2, H * 0.92,
+        { size: S * 0.03, weight: 400, font: 'ui-monospace, Menlo, monospace', alpha: fadeIn * 0.8 });
+      Scene.text(ctx, '(arms 1 m each)', W / 2, H * 0.92 + S * 0.04, { size: S * 0.02, weight: 400, alpha: fadeIn * 0.4 });
+
+      // "what if smaller?"
+      const q1 = Scene.smooth((t - s1) / 0.4), q2 = Scene.smooth((t - s2) / 0.4);
+      Scene.text(ctx, '0.001° ?', W * 0.16, H * 0.45, { size: S * 0.06, weight: 700, alpha: q1, shadow: true });
+      Scene.text(ctx, '0.000001° ?', W * 0.84, H * 0.45, { size: S * 0.06, weight: 700, alpha: q2, shadow: true });
+    },
+  };
+});
+</script>
+</body></html>

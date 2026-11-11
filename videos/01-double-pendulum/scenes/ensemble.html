@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Hook + title</title></head>
+<body>
+<script src="../../../lib/scene.js"></script>
+<script src="../../../pieces/double-pendulum/sim.js"></script>
+<script src="../../../pieces/double-pendulum/render.js"></script>
+<script>
+// Ensemble scene (used for the hook, the 1,000-pendulum showcase and the montage).
+// Pendulums moving as one, splitting into a rainbow, then chaos; optional title card.
+// Params: n, a1, a2, spread, trail, glow, preroll (sim seconds skipped before frame 0),
+//   hold (seconds held still before release), cap1/cap2 (caption lines, shown until textOut), clock (show t = ...), titleAt, title, duration.
+Scene.run(({ ctx, W, H, S, num, str, fps }) => {
+  const n = num('n', 1000), spread = num('spread', 1e-5);
+  const textOut = num('textOut', 6.5), titleAt = num('titleAt', 1e9), duration = num('duration', 27);
+  const cap1 = str('cap1', ''), cap2 = str('cap2', ''), title = str('title', 'I programmed chaos.');
+  const hold = num('hold', 0), trail = num('trail', 0.6), glow = num('glow', 0.35), clock = num('clock', 0);
+  const sim = DoublePendulumSim.createSim({ n });
+  sim.reset(num('a1', 150), num('a2', 150), spread);
+  const preroll = num('preroll', 3);
+  for (let t = 0; t < preroll - 1e-9; t += 1 / fps) sim.step(1 / fps, 8);
+
+  const L = S * 0.22, lw = Math.max(1, S / 900);
+  return {
+    duration,
+    frame(t, dt) {
+      if (t >= hold) sim.step(dt, 8);   // before `hold`, the pendulums are held still
+      PendulumRender.fade(ctx, W, H, trail);
+      PendulumRender.drawEnsemble(ctx, sim, { ox: W / 2, oy: H / 2, L, lw, glow });
+
+      // opening caption
+      const a = Scene.window01(t, 0.3, textOut, 0.6, 0.8);
+      Scene.text(ctx, cap1, W / 2, H * 0.1, { size: S * 0.05, alpha: a, shadow: true });
+      Scene.text(ctx, cap2, W / 2, H * 0.1 + S * 0.065,
+        { size: S * 0.03, weight: 400, alpha: a * 0.75, shadow: true });
+
+      if (clock) Scene.text(ctx, `t = ${sim.time.toFixed(1)} s`, W / 2, H * 0.93,
+        { size: S * 0.028, weight: 400, font: 'ui-monospace, Menlo, monospace', alpha: 0.6 * Scene.smooth(t / 0.8) });
+
+      // title card: darken the chaos behind, fade the title in
+      if (t >= titleAt) {
+        const k = Scene.smooth((t - titleAt) / 0.8);
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.fillStyle = `rgba(5,5,10,${0.7 * k})`;
+        ctx.fillRect(0, 0, W, H);
+        Scene.text(ctx, title, W / 2, H / 2, { size: S * 0.1, weight: 700, alpha: k, tracking: -S * 0.002 });
+      }
+    },
+  };
+});
+</script>
+</body></html>

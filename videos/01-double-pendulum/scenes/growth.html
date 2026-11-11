@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Exponential growth</title></head>
+<body>
+<script src="../../../lib/scene.js"></script>
+<script src="../../../pieces/double-pendulum/sim.js"></script>
+<script>
+// Scene 8: the gap between two pendulums over time, on a log scale (real simulation data).
+// Curve 1 starts ~1 nanometre apart; at secondAt, curve 2 starts 1000x closer, and
+// arrives only a few seconds later.
+Scene.run(({ ctx, W, H, S, num, fps }) => {
+  const duration = num('duration', 30), drawEnd = num('drawEnd', 14), secondAt = num('secondAt', 18);
+  const T = 28, sub = 8;
+  // Run a pair of pendulums and record the tip gap (metres; arms are 1 m). The raw gap
+  // dips toward 0 when paths cross, so show the largest gap in the last half second.
+  function run(diffDeg) {
+    const s = DoublePendulumSim.createSim({ n: 2 }); s.reset(150, 150, diffDeg);
+    const raw = [], out = [];
+    for (let f = 0; f <= T * fps; f++) {
+      const dx = Math.sin(s.th1[0]) + Math.sin(s.th2[0]) - Math.sin(s.th1[1]) - Math.sin(s.th2[1]);
+      const dy = Math.cos(s.th1[0]) + Math.cos(s.th2[0]) - Math.cos(s.th1[1]) - Math.cos(s.th2[1]);
+      raw.push(Math.max(1e-16, Math.hypot(dx, dy)));
+      let m = 0; for (let k = Math.max(0, f - fps / 2); k <= f; k++) m = Math.max(m, raw[k]);
+      out.push(m);
+      s.step(1 / fps, sub);
+    }
+    return out;
+  }
+  const c1 = run(3e-8), c2 = run(3e-11);   // ≈1 nm and ≈1 pm apart at the tips
+  const reach = (c, v) => c.findIndex(x => x >= v) / fps;
+  const t1 = reach(c1, 0.1), t2 = reach(c2, 0.1);
+
+  const gx0 = W * 0.14, gx1 = W * 0.9, gy0 = H * 0.86, gy1 = H * 0.14;
+  const LMIN = -13, LMAX = 1;
+  const X = tt => gx0 + (gx1 - gx0) * tt / T;
+  const Y = v => gy0 - (gy0 - gy1) * (Math.log10(v) - LMIN) / (LMAX - LMIN);
+  const lw = Math.max(1.5, S / 520);
+  const REFS = [[1e-12, 'smaller than an atom'], [1e-10, 'an atom'], [1e-7, 'a virus'], [1e-4, 'a human hair'], [1e-1, 'a hand']];
+  const C1 = 'hsl(265,95%,72%)', C2 = 'hsl(45,95%,62%)';
+
+  function curve(c, upto, color, alpha) {
+    const n = Math.min(c.length, Math.floor(upto * fps));
+    ctx.globalAlpha = alpha; ctx.strokeStyle = color; ctx.lineWidth = lw * 1.5; ctx.lineJoin = 'round';
+    ctx.beginPath();
+    for (let i = 0; i < n; i++) { const x = X(i / fps), y = Y(c[i]); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }
+    ctx.stroke();
+    if (n > 0) { ctx.fillStyle = color; ctx.beginPath(); ctx.arc(X((n - 1) / fps), Y(c[n - 1]), lw * 3, 0, 7); ctx.fill(); }
+    ctx.globalAlpha = 1;
+  }
+
+  return {
+    duration,
+    frame(t) {
+      ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
+      ctx.fillStyle = '#05050a'; ctx.fillRect(0, 0, W, H);
+      const a = Scene.smooth(t / 0.8);
+
+      // axes + reference sizes
+      ctx.globalAlpha = a; ctx.strokeStyle = 'rgba(255,255,255,0.25)'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(gx0, gy1); ctx.lineTo(gx0, gy0); ctx.lineTo(gx1, gy0); ctx.stroke();
+      ctx.setLineDash([3, 7]);
+      for (const [v, label] of REFS) {
+        ctx.strokeStyle = 'rgba(255,255,255,0.12)'; ctx.beginPath(); ctx.moveTo(gx0, Y(v)); ctx.lineTo(gx1, Y(v)); ctx.stroke();
+        Scene.text(ctx, label, gx0 - S * 0.012, Y(v), { size: S * 0.02, weight: 400, align: 'right', color: 'rgba(255,255,255,0.55)', alpha: a });
+      }
+      ctx.setLineDash([]);
+      for (let s = 0; s <= T; s += 5)
+        Scene.text(ctx, `${s}s`, X(s), gy0 + S * 0.03, { size: S * 0.019, weight: 400, color: 'rgba(255,255,255,0.45)', alpha: a });
+      Scene.text(ctx, 'gap between two pendulums (log scale: each line is 1,000× bigger)', W / 2, H * 0.06,
+        { size: S * 0.028, weight: 500, alpha: a * 0.85 });
+
+      // curve 1 draws in over [0.6, drawEnd]
+      const p1 = T * Scene.clamp01((t - 0.6) / (drawEnd - 0.6));
+      curve(c1, p1, C1, a);
+      if (t > 0.8) Scene.text(ctx, 'start: 1 nanometre apart', X(0.3), Y(c1[0]) - S * 0.045,
+        { size: S * 0.02, weight: 500, align: 'left', color: C1, alpha: Scene.smooth((t - 0.8) / 0.6) });
+
+      // curve 2 (1000x closer) draws quickly after secondAt
+      if (t > secondAt) {
+        const p2 = T * Scene.clamp01((t - secondAt) / 4);
+        curve(c2, p2, C2, 1);
+        Scene.text(ctx, '1,000× closer', X(0.3), Y(c2[0]) + S * 0.03,
+          { size: S * 0.02, weight: 500, align: 'left', color: C2, alpha: Scene.smooth((t - secondAt) / 0.6) });
+        // bracket: how much extra time 1000x more precision bought
+        const b = Scene.smooth((t - secondAt - 4.2) / 0.6);
+        if (b > 0 && t1 > 0 && t2 > 0) {
+          const y = Y(0.1) - S * 0.05;
+          ctx.globalAlpha = b; ctx.strokeStyle = '#fff'; ctx.lineWidth = lw;
+          ctx.beginPath(); ctx.moveTo(X(t1), y + 8); ctx.lineTo(X(t1), y); ctx.lineTo(X(t2), y); ctx.lineTo(X(t2), y + 8); ctx.stroke();
+          ctx.globalAlpha = 1;
+          Scene.text(ctx, `only +${(t2 - t1).toFixed(1)} s`, (X(t1) + X(t2)) / 2, y - S * 0.03, { size: S * 0.03, weight: 700, alpha: b });
+        }
+      }
+    },
+  };
+});
+</script>
+</body></html>

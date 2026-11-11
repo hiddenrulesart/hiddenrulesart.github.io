@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Euler vs RK4</title></head>
+<body>
+<script src="../../../lib/scene.js"></script>
+<script src="../../../pieces/double-pendulum/sim.js"></script>
+<script>
+// Scene 5: the equations of motion, then a split screen. Left: Euler's method (1 step/frame),
+// which gains energy until it whirls like a propeller. Right: RK4, which conserves energy.
+// An energy graph underneath. Params: splitAt, rk4At, duration.
+Scene.run(({ ctx, W, H, S, num, fps }) => {
+  const duration = num('duration', 30), splitAt = num('splitAt', 9), rk4At = num('rk4At', 20);
+  const G = 9.81, A0 = 45 * Math.PI / 180;
+  const MATH = '"Times New Roman", "STIX Two Math", serif';
+  const EUL = 'hsl(18,95%,62%)', RK = 'hsl(190,95%,62%)';
+
+  function accel(t1, t2, w1, w2) {
+    const d = t1 - t2, sd = Math.sin(d), cd = Math.cos(d), den = 3 - Math.cos(2 * d);
+    return [(-3 * G * Math.sin(t1) - G * Math.sin(t1 - 2 * t2) - 2 * sd * (w2 * w2 + w1 * w1 * cd)) / den,
+            (2 * sd * (2 * w1 * w1 + 2 * G * Math.cos(t1) + w2 * w2 * cd)) / den];
+  }
+  const energy = (t1, t2, w1, w2) => 0.5 * (2 * w1 * w1 + w2 * w2 + 2 * w1 * w2 * Math.cos(t1 - t2)) - G * (2 * Math.cos(t1) + Math.cos(t2));
+
+  // Euler: the naive "position += velocity * dt" with one step per frame.
+  const eu = { t1: A0, t2: A0, w1: 0, w2: 0 };
+  const rk = DoublePendulumSim.createSim({ n: 1 }); rk.reset(45, 45, 0);
+  const E0 = energy(A0, A0, 0, 0);
+  const histE = [], histR = [], trE = [], trR = [];
+
+  function fraction(cx, cy, label, num_, den, size) {
+    ctx.font = `italic 400 ${size}px ${MATH}`;
+    const wN = ctx.measureText(num_).width, wD = ctx.measureText(den).width, wL = ctx.measureText(label).width;
+    const wF = Math.max(wN, wD) + size;
+    const x0 = cx - (wL + wF) / 2;
+    ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
+    ctx.fillText(label, x0, cy);
+    const fx = x0 + wL;
+    ctx.fillRect(fx, cy - size * 0.04, wF, Math.max(1.5, size * 0.05));
+    ctx.textAlign = 'center';
+    ctx.fillText(num_, fx + wF / 2, cy - size * 0.7);
+    ctx.fillText(den, fx + wF / 2, cy + size * 0.75);
+  }
+
+  const lw = Math.max(1.5, S / 520);
+  function drawPendulum(cx, cy, L, t1, t2, color, alpha, trail) {
+    ctx.globalAlpha = alpha;
+    ctx.lineWidth = lw; ctx.strokeStyle = color; ctx.lineCap = 'round';
+    if (trail.length > 2) {
+      ctx.globalAlpha = alpha * 0.45; ctx.beginPath(); ctx.moveTo(trail[0], trail[1]);
+      for (let i = 2; i < trail.length; i += 2) ctx.lineTo(trail[i], trail[i + 1]);
+      ctx.stroke(); ctx.globalAlpha = alpha;
+    }
+    const x1 = cx + L * Math.sin(t1), y1 = cy + L * Math.cos(t1), x2 = x1 + L * Math.sin(t2), y2 = y1 + L * Math.cos(t2);
+    ctx.lineWidth = lw * 1.6; ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+    ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(cx, cy, lw * 2.5, 0, 7); ctx.fill();
+    ctx.fillStyle = color; ctx.beginPath(); ctx.arc(x2, y2, S * 0.014, 0, 7); ctx.fill();
+    ctx.globalAlpha = 1;
+    return [x2, y2];
+  }
+
+  return {
+    duration,
+    frame(t, dt) {
+      ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
+      ctx.fillStyle = '#05050a'; ctx.fillRect(0, 0, W, H);
+
+      // ---- equations
+      const eqA = Scene.window01(t, 0, splitAt + 0.3, 0.8, 0.6);
+      if (eqA > 0) {
+        ctx.globalAlpha = eqA; ctx.fillStyle = '#fff';
+        const sz = S * 0.032;
+        Scene.text(ctx, 'The equations of motion', W / 2, H * 0.14, { size: S * 0.032, weight: 500, alpha: eqA * 0.7 });
+        ctx.globalAlpha = eqA;
+        fraction(W / 2, H * 0.36, 'θ₁″ = ',
+          '−g(2m₁+m₂) sin θ₁ − m₂g sin(θ₁−2θ₂) − 2 sin(θ₁−θ₂) m₂ (ω₂² L₂ + ω₁² L₁ cos(θ₁−θ₂))',
+          'L₁ (2m₁ + m₂ − m₂ cos(2θ₁−2θ₂))', sz);
+        fraction(W / 2, H * 0.62, 'θ₂″ = ',
+          '2 sin(θ₁−θ₂) (ω₁² L₁(m₁+m₂) + g(m₁+m₂) cos θ₁ + ω₂² L₂ m₂ cos(θ₁−θ₂))',
+          'L₂ (2m₁ + m₂ − m₂ cos(2θ₁−2θ₂))', sz);
+        Scene.text(ctx, 'angles + speeds now  →  accelerations  →  step forward a tiny bit of time  →  repeat',
+          W / 2, H * 0.84, { size: S * 0.024, weight: 400, alpha: eqA * 0.55 * Scene.smooth((t - 4) / 1) });
+        ctx.globalAlpha = 1;
+      }
+
+      // ---- split screen
+      const sp = Scene.smooth((t - splitAt) / 0.8);
+      if (sp <= 0) return;
+      // Euler step (naive), one per frame
+      const [a1, a2] = accel(eu.t1, eu.t2, eu.w1, eu.w2);
+      eu.t1 += eu.w1 * dt; eu.t2 += eu.w2 * dt; eu.w1 += a1 * dt; eu.w2 += a2 * dt;
+      rk.step(dt, 8);
+      histE.push(energy(eu.t1, eu.t2, eu.w1, eu.w2));
+      histR.push(energy(rk.th1[0], rk.th2[0], rk.om1[0], rk.om2[0]));
+
+      const L = H * 0.115, py = H * 0.31, lx = W * 0.28, rx = W * 0.72;
+      const rkA = 0.3 + 0.7 * Scene.smooth((t - rk4At) / 0.8);
+      Scene.text(ctx, "Euler's method", lx, H * 0.07, { size: S * 0.032, weight: 600, color: EUL, alpha: sp });
+      Scene.text(ctx, 'Runge–Kutta (RK4)', rx, H * 0.07, { size: S * 0.032, weight: 600, color: RK, alpha: sp * rkA });
+      const tipE = drawPendulum(lx, py, L, eu.t1, eu.t2, EUL, sp, trE);
+      const tipR = drawPendulum(rx, py, L, rk.th1[0], rk.th2[0], RK, sp * rkA, trR);
+      trE.push(...tipE); trR.push(...tipR);
+      const keep = Math.round(0.5 * fps) * 2;
+      if (trE.length > keep) trE.splice(0, trE.length - keep);
+      if (trR.length > keep) trR.splice(0, trR.length - keep);
+
+      // energy graph
+      const gx0 = W * 0.1, gx1 = W * 0.9, gy0 = H * 0.92, gy1 = H * 0.64;
+      const EMIN = E0 - 5, EMAX = E0 + 95, span = Math.max(1, duration - splitAt) * fps;
+      const X = i => gx0 + (gx1 - gx0) * i / span, Y = e => gy0 - (gy0 - gy1) * (Math.min(EMAX, e) - EMIN) / (EMAX - EMIN);
+      ctx.globalAlpha = sp;
+      ctx.strokeStyle = 'rgba(255,255,255,0.18)'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(gx0, gy1); ctx.lineTo(gx0, gy0); ctx.lineTo(gx1, gy0); ctx.stroke();
+      ctx.setLineDash([4, 6]); ctx.beginPath(); ctx.moveTo(gx0, Y(E0)); ctx.lineTo(gx1, Y(E0)); ctx.stroke(); ctx.setLineDash([]);
+      Scene.text(ctx, 'energy', gx0 - S * 0.012, gy1, { size: S * 0.022, weight: 400, align: 'right', color: 'rgba(255,255,255,0.5)', alpha: sp });
+      Scene.text(ctx, 'should stay constant', gx1, Y(E0) - S * 0.022, { size: S * 0.02, weight: 400, align: 'right', color: 'rgba(255,255,255,0.4)', alpha: sp });
+      const line = (h, color, a) => {
+        ctx.globalAlpha = a; ctx.strokeStyle = color; ctx.lineWidth = lw * 1.3;
+        ctx.beginPath(); h.forEach((e, i) => (i ? ctx.lineTo(X(i), Y(e)) : ctx.moveTo(X(i), Y(e)))); ctx.stroke();
+      };
+      line(histE, EUL, sp);
+      const rkLine = Scene.smooth((t - rk4At) / 0.8);
+      if (rkLine > 0) line(histR, RK, rkLine);
+      ctx.globalAlpha = 1;
+    },
+  };
+});
+</script>
+</body></html>

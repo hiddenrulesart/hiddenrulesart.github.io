@@ -1,11 +1,13 @@
 #!/usr/bin/env node
-// Build episode 1 (currently: the first minute).
+// Build episode 1: "I programmed 1,000 pendulums. Then chaos happened."
 //   1. Narration: each line in voice.json -> ElevenLabs TTS (cached by text+voice+model).
-//   2. Timing: every scene's length is derived from the narration lengths.
-//   3. Render: each scene via tools/record.mjs (frame-exact).
-//   4. Assemble: crossfade scenes, lay narration at the computed offsets -> out/episode01.mp4
+//   2. Timing: every scene's length and internal cues are derived from the narration lengths.
+//   3. Render: each scene via tools/record.mjs (or tools/capture-page.mjs for the website);
+//      clips are cached by a hash of their source files + parameters, so edits only re-render what changed.
+//   4. Assemble: crossfade all scenes, lay narration at the computed offsets, normalize loudness.
 //
-// Usage: node videos/01-double-pendulum/build.mjs [--4k] [--voice <voice_id>] [--model <model_id>]
+// Usage: node videos/01-double-pendulum/build.mjs [--4k] [--placeholder] [--only a,b] [--voice <id>] [--model <id>]
+//   --placeholder  macOS `say` instead of ElevenLabs (free, for timing tests)
 // Needs ELEVENLABS_API_KEY in <repo>/.env (git-ignored) or the environment.
 import fs from 'node:fs';
 import path from 'node:path';
@@ -16,12 +18,15 @@ import { fileURLToPath } from 'node:url';
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '../..');
 const OUT = path.join(HERE, 'out');
+const REL = path.relative(ROOT, HERE);
 fs.mkdirSync(path.join(OUT, 'audio'), { recursive: true });
+fs.mkdirSync(path.join(OUT, 'clips'), { recursive: true });
 
 const args = process.argv.slice(2);
 const arg = (k, d) => { const i = args.indexOf(k); return i >= 0 ? args[i + 1] : d; };
-const [W, H] = args.includes('--4k') ? [3840, 2160] : [1920, 1080];
-const FPS = 60;
+const K4 = args.includes('--4k');
+const [W, H] = K4 ? [3840, 2160] : [1920, 1080];
+const FPS = 60, XF = 0.6;   // crossfade between scenes
 
 // ---- config / secrets
 const envFile = path.join(ROOT, '.env');
@@ -32,13 +37,14 @@ const KEY = process.env.ELEVENLABS_API_KEY;
 const VOICE = arg('--voice', process.env.ELEVENLABS_VOICE_ID || 'nPczCjzI2devNBz1zQrb'); // "Brian": deep, calm narrator
 const MODEL = arg('--model', process.env.ELEVENLABS_MODEL || 'eleven_multilingual_v2');
 const SETTINGS = { stability: 0.45, similarity_boost: 0.8, style: 0.15, use_speaker_boost: true };
+const sha = s => crypto.createHash('sha1').update(s).digest('hex').slice(0, 10);
 
 const { segments } = JSON.parse(fs.readFileSync(path.join(HERE, 'voice.json'), 'utf8'));
 
 // ---- 1. narration
 async function tts(seg, prev, next) {
-  if (args.includes('--placeholder')) { // macOS built-in voice, for testing timing without API cost
-    const file = path.join(OUT, 'audio', `${seg.id}-say-${crypto.createHash('sha1').update(seg.text).digest('hex').slice(0, 10)}.m4a`);
+  if (args.includes('--placeholder')) {
+    const file = path.join(OUT, 'audio', `${seg.id}-say-${sha(seg.text)}.m4a`);
     if (!fs.existsSync(file)) {
       const aiff = file.replace(/\.m4a$/, '.aiff');
       execFileSync('say', ['-r', '165', '-o', aiff, seg.text]);
@@ -46,8 +52,7 @@ async function tts(seg, prev, next) {
     }
     return file;
   }
-  const hash = crypto.createHash('sha1').update(JSON.stringify([seg.text, VOICE, MODEL, SETTINGS])).digest('hex').slice(0, 10);
-  const file = path.join(OUT, 'audio', `${seg.id}-${hash}.mp3`);
+  const file = path.join(OUT, 'audio', `${seg.id}-${sha(JSON.stringify([seg.text, VOICE, MODEL, SETTINGS]))}.mp3`);
   if (fs.existsSync(file)) return file;
   if (!KEY) throw new Error('ELEVENLABS_API_KEY missing: put it in ' + envFile);
   console.log(`  TTS: ${seg.id}`);
@@ -55,66 +60,121 @@ async function tts(seg, prev, next) {
     method: 'POST',
     headers: { 'xi-api-key': KEY, 'Content-Type': 'application/json' },
     // previous/next text keeps intonation continuous across separately generated lines
-    body: JSON.stringify({ text: seg.text, model_id: MODEL, voice_settings: SETTINGS,
-      previous_text: prev?.text, next_text: next?.text }),
+    body: JSON.stringify({ text: seg.text, model_id: MODEL, voice_settings: SETTINGS, previous_text: prev?.text, next_text: next?.text }),
   });
   if (!res.ok) throw new Error(`ElevenLabs ${res.status}: ${(await res.text()).slice(0, 300)}`);
   fs.writeFileSync(file, Buffer.from(await res.arrayBuffer()));
   return file;
 }
-const dur = f => +execFileSync('ffprobe', ['-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', f]).toString().trim();
+const probeDur = f => +execFileSync('ffprobe', ['-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', f]).toString().trim();
 
 console.log('1/4 Narration');
 const audio = {};
 for (let i = 0; i < segments.length; i++) {
   const file = await tts(segments[i], segments[i - 1], segments[i + 1]);
-  audio[segments[i].id] = { file, d: dur(file) };
-  console.log(`  ${segments[i].id.padEnd(9)} ${audio[segments[i].id].d.toFixed(2)}s`);
+  audio[segments[i].id] = { file, d: probeDur(file) };
 }
 
-// ---- 2. timing
-const XF = 0.6;                       // crossfade between scenes
-const A = audio;
-const hookAt = 0.4, questionAt = hookAt + A.hook.d + 0.35;
-const titleAt = questionAt + A.question.d + 0.3, TITLE = 2.6;
-const sceneA = titleAt + TITLE;       // hook + question + title card
-const simpleVoiceIn = 0.7;
-const sceneB = simpleVoiceIn + A.simple.d + 1.2;
-const simpleAt = sceneA - XF + simpleVoiceIn;
-const total = sceneA + sceneB - XF;
-
-// Start the sim late enough that the rainbow split becomes visible right after the hook line.
-await import(path.join(ROOT, 'pieces/double-pendulum/sim.js')); // registers globalThis.DoublePendulumSim
+// ---- helpers for scene cues
+await import(path.join(ROOT, 'pieces/double-pendulum/sim.js'));
 const { createSim } = globalThis.DoublePendulumSim;
-const probe = createSim({ n: 1000 }); probe.reset(150, 150, 1e-5);
-let visible = 0;
-while (probe.divergence() < 0.015 && probe.time < 60) { probe.step(1 / FPS, 8); visible = probe.time; }
-const splitAt = hookAt + A.hook.d + 0.4;        // video time we want the split to show
-const preroll = Math.max(0, visible - splitAt);
-console.log(`2/4 Timing: total ${total.toFixed(1)}s, title at ${titleAt.toFixed(1)}s, sim preroll ${preroll.toFixed(2)}s`);
+// sim time at which an ensemble visibly starts to fan out (spread depends only on the extremes, so n=200 suffices)
+function splitTime(a1, a2, spread) {
+  const s = createSim({ n: 200 }); s.reset(a1, a2, spread);
+  while (s.divergence() < 0.015 && s.time < 60) s.step(1 / FPS, 8);
+  return s.time;
+}
+const f = (x, d = 3) => (+x).toFixed(d);
 
-// ---- 3. render scenes
+// ---- 2. scenes. voice: [[segmentId, gapBefore]]; tail: seconds after the last line; min: minimum length.
+// args(c) gets c.at(id) (line start within the scene), c.end(id), c.d(id), c.dur.
+const ens = (o) => Object.entries(o).flatMap(([k, v]) => ['--' + k, String(v)]);
+const SCENES = [
+  { key: 'hook', page: 'ensemble', voice: [['hook', 0.4], ['question', 0.35]], tail: 0.3 + 2.6,
+    args: c => {
+      const preroll = Math.max(0, splitTime(150, 150, 1e-5) - (c.end('hook') + 0.4));
+      return ens({ preroll: f(preroll, 4), cap1: '1,000 pendulums', cap2: 'all starting within 0.00001° of each other',
+        textOut: f(c.at('question') + 0.5, 2), titleAt: f(c.end('question') + 0.3) });
+    } },
+  { key: 'simple', page: 'simple', voice: [['simple', 0.7]], tail: 1.2,
+    args: c => ens({ futureAt: f(c.at('simple') + c.d('simple') * 0.62, 2) }) },
+  { key: 'double', page: 'double', voice: [['double', 0.7], ['wild', 0.6]], tail: 3,
+    args: c => ens({ liftAt: f(c.at('wild') - 1.1, 2) }) },
+  { key: 'euler', page: 'euler', voice: [['equations', 0.7], ['euler', 0.5], ['rk4', 0.5]], tail: 2.5,
+    args: c => ens({ splitAt: f(c.at('euler') - 0.4, 2), rk4At: f(c.at('rk4'), 2) }) },
+  { key: 'two', page: 'two', voice: [['two', 0.9], ['smaller', 0.5]], tail: 1.2,
+    args: c => ens({ smaller1At: f(c.at('smaller') + c.d('smaller') * 0.6, 2), smaller2At: f(c.at('smaller') + c.d('smaller') * 0.8, 2) }) },
+  { key: 'thousand', page: 'ensemble', voice: [['thousand', 0.8], ['rainbow', 0.4]], tail: 4,
+    args: c => {
+      // release so the split lands ~1.5 s into "For ten seconds, they move as one."
+      const hold = Math.max(1, c.at('rainbow') + 1.5 - splitTime(150, 150, 1e-5));
+      return ens({ hold: f(hold, 3), clock: 1, cap1: '1,000 pendulums', cap2: 'within 0.00001°', textOut: f(c.dur - 1, 2), trail: 0.7 });
+    } },
+  { key: 'growth', page: 'growth', voice: [['growth', 0.7], ['sensitive', 0.5]], tail: 2,
+    args: c => ens({ drawEnd: f(c.at('growth') + c.d('growth') * 0.9, 2), secondAt: f(c.at('sensitive') + 0.3, 2) }) },
+  // montage: three looks, each starting just before its split
+  ...[
+    { n: 3000, a1: 120, a2: 170, glow: 0.2, trail: 0.85 },
+    { n: 10000, a1: 179, a2: 179, glow: 0.08, trail: 0.75 },
+    { n: 1000, a1: 90, a2: 180, glow: 0.35, trail: 0.9 },
+  ].map((v, i) => ({ key: `montage${i + 1}`, page: 'ensemble', voice: i === 0 ? [['beautiful', 1.0]] : [], tail: 0, min: 7,
+    args: () => ens({ ...v, spread: 1e-5, preroll: f(Math.max(0, splitTime(v.a1, v.a2, 1e-5) - 1.2), 4) }) })),
+  { key: 'site', capture: { page: 'pieces/double-pendulum/', choreo: 'scenes/site-choreo.mjs' }, voice: [['site', 1.2]], tail: 1, min: 14.5 },
+  { key: 'lorenz', page: 'lorenz', voice: [['lorenz', 1.4]], tail: 8,
+    args: c => ens({ nextAt: f(c.end('lorenz') + 0.8, 2) }) },
+];
+
+// timing
+let clock = 0;
+const placed = [];   // [file, absoluteStart]
+for (const [i, s] of SCENES.entries()) {
+  const at = {}; let t = 0;
+  for (const [id, gap] of s.voice) { t += gap; at[id] = t; t += audio[id].d; }
+  s.dur = Math.max(s.min || 0, t + s.tail);
+  s.start = clock;
+  for (const [id] of s.voice) placed.push([audio[id].file, clock + at[id]]);
+  const c = { at: id => at[id], end: id => at[id] + audio[id].d, d: id => audio[id].d, dur: s.dur };
+  s.extra = s.args ? s.args(c) : [];
+  clock += s.dur - (i < SCENES.length - 1 ? XF : 0);
+}
+const total = clock;
+console.log(`2/4 Timing: ${SCENES.length} scenes, total ${Math.floor(total / 60)}:${f(total % 60, 1).padStart(4, '0')}`);
+for (const s of SCENES) console.log(`  ${s.key.padEnd(10)} ${f(s.start, 1).padStart(6)}s  +${f(s.dur, 1)}s`);
+
+// ---- 3. render (cached)
+const only = arg('--only', '')?.split(',').filter(Boolean);
+const deps = ['lib/scene.js', 'pieces/double-pendulum/sim.js', 'pieces/double-pendulum/render.js', 'pieces/double-pendulum/index.html', 'tools/record.mjs', 'tools/capture-page.mjs'];
+const read = p => fs.readFileSync(path.join(ROOT, p), 'utf8');
 console.log(`3/4 Render (${W}x${H})`);
-const rec = (scene, secs, extra, out) => {
-  const r = spawnSync('node', [path.join(ROOT, 'tools/record.mjs'), `videos/01-double-pendulum/scenes/${scene}.html`,
-    '--w', W, '--h', H, '--fps', FPS, '--seconds', secs.toFixed(3), '--out', out, ...extra].map(String),
-    { cwd: ROOT, stdio: ['ignore', 'inherit', 'inherit'] });
-  if (r.status !== 0) throw new Error(`render ${scene} failed`);
-};
-const vA = path.join(OUT, `A-hook-${W}.mp4`), vB = path.join(OUT, `B-simple-${W}.mp4`);
-rec('hook', sceneA, ['--preroll', preroll.toFixed(4), '--textOut', (questionAt + 0.5).toFixed(2), '--titleAt', titleAt.toFixed(3), '--duration', sceneA.toFixed(3)], vA);
-rec('simple', sceneB, ['--futureAt', (simpleVoiceIn + A.simple.d * 0.62).toFixed(2), '--duration', sceneB.toFixed(3)], vB);
+for (const s of SCENES) {
+  const src = s.capture ? [s.capture.page + 'index.html', path.join(REL, s.capture.choreo)] : [path.join(REL, 'scenes', s.page + '.html')];
+  const key = sha(JSON.stringify([src.map(read), deps.map(read), s.extra, f(s.dur), W, H, FPS]));
+  s.file = path.join(OUT, 'clips', `${s.key}-${W}-${key}.mp4`);
+  if (fs.existsSync(s.file) && !(only && only.includes(s.key))) { console.log(`  ${s.key}: cached`); continue; }
+  console.log(`  ${s.key}: rendering ${f(s.dur, 1)}s`);
+  const cmd = s.capture
+    ? [path.join(ROOT, 'tools/capture-page.mjs'), s.capture.page, path.join(HERE, s.capture.choreo),
+       '--w', 1920, '--h', 1080, '--scale', W / 1920, '--fps', FPS, '--seconds', f(s.dur), '--out', s.file]
+    : [path.join(ROOT, 'tools/record.mjs'), `${REL}/scenes/${s.page}.html`,
+       '--w', W, '--h', H, '--fps', FPS, '--seconds', f(s.dur), '--duration', f(s.dur), '--out', s.file, ...s.extra];
+  const r = spawnSync('node', cmd.map(String), { cwd: ROOT, stdio: ['ignore', 'ignore', 'inherit'] });
+  if (r.status !== 0 || !fs.existsSync(s.file)) throw new Error(`render ${s.key} failed`);
+}
 
 // ---- 4. assemble
 console.log('4/4 Assemble');
-const final = path.join(OUT, `episode01-${W === 3840 ? '4k' : '1080p'}.mp4`);
-const ms = s => Math.round(s * 1000);
-execFileSync('ffmpeg', ['-y', '-loglevel', 'error',
-  '-i', vA, '-i', vB, '-i', A.hook.file, '-i', A.question.file, '-i', A.simple.file,
-  '-filter_complex',
-  `[0:v][1:v]xfade=transition=fade:duration=${XF}:offset=${(sceneA - XF).toFixed(3)},format=yuv420p[v];` +
-  `[2:a]adelay=${ms(hookAt)}:all=1[a0];[3:a]adelay=${ms(questionAt)}:all=1[a1];[4:a]adelay=${ms(simpleAt)}:all=1[a2];` +
-  `[a0][a1][a2]amix=inputs=3:normalize=0,loudnorm=I=-14:TP=-1.5:LRA=11,aresample=44100,apad,atrim=0:${total.toFixed(3)}[a]`,
-  '-map', '[v]', '-map', '[a]', '-c:v', 'libx264', '-preset', 'slow', '-crf', '16', '-c:a', 'aac', '-b:a', '192k',
-  '-movflags', '+faststart', '-t', total.toFixed(3), final], { stdio: 'inherit' });
-console.log(`Done: ${final} (${total.toFixed(1)}s)`);
+const final = path.join(OUT, `episode01-${K4 ? '4k' : '1080p'}.mp4`);
+const inputs = [...SCENES.map(s => s.file), ...placed.map(p => p[0])];
+let fc = '', prev = '[0:v]';
+for (let i = 1; i < SCENES.length; i++) {
+  const lbl = i === SCENES.length - 1 ? '[vx]' : `[v${i}]`;
+  fc += `${prev}[${i}:v]xfade=transition=fade:duration=${XF}:offset=${f(SCENES[i].start)}${lbl};`;
+  prev = lbl;
+}
+fc += `[vx]fade=t=out:st=${f(total - 1.2)}:d=1.2,format=yuv420p[v];`;
+placed.forEach(([, at], k) => { fc += `[${SCENES.length + k}:a]adelay=${Math.round(at * 1000)}:all=1[a${k}];`; });
+fc += placed.map((_, k) => `[a${k}]`).join('') + `amix=inputs=${placed.length}:normalize=0,loudnorm=I=-14:TP=-1.5:LRA=11,aresample=44100,apad,atrim=0:${f(total)}[a]`;
+execFileSync('ffmpeg', ['-y', '-loglevel', 'error', ...inputs.flatMap(x => ['-i', x]), '-filter_complex', fc,
+  '-map', '[v]', '-map', '[a]', '-c:v', 'libx264', '-preset', 'slow', '-crf', K4 ? '18' : '16', '-c:a', 'aac', '-b:a', '192k',
+  '-movflags', '+faststart', '-t', f(total), final], { stdio: 'inherit' });
+console.log(`Done: ${final} (${Math.floor(total / 60)}:${f(total % 60, 1).padStart(4, '0')})`);
