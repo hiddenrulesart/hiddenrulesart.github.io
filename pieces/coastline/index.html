@@ -1,0 +1,467 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%2305050a'/%3E%3Cpath d='M6 22 L9 15 L12 17 L14 10 L17 13 L19 8 L22 14 L24 12 L26 20 L21 25 L16 23 L11 26 Z' fill='%231d3b2a' stroke='%237ff0ff' stroke-width='1.4' stroke-linejoin='round'/%3E%3C/svg%3E">
+<title>The Coastline Paradox</title>
+<meta name="description" content="How long is a coastline? Measure a fractal island with smaller and smaller rulers and watch the answer grow without limit.">
+<meta property="og:title" content="The Coastline Paradox">
+<meta property="og:description" content="How long is a coastline? Measure a fractal island with smaller and smaller rulers and watch the answer grow without limit.">
+<meta property="og:image" content="https://sirdevelop.github.io/generativeArt/assets/thumbs/coastline.jpg">
+<meta property="og:url" content="https://sirdevelop.github.io/generativeArt/pieces/coastline/">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="stylesheet" href="../../lib/ui.css">
+<style>
+  canvas.stage { cursor: grab; } canvas.stage.grabbing { cursor: grabbing; }
+  .zoombar { position: fixed; left: 16px; top: 50%; transform: translateY(-50%); z-index: 8; display: flex; flex-direction: column; gap: 6px; }
+  .zoombar button { width: 42px; height: 42px; padding: 0; font-size: 20px; line-height: 1; background: var(--panel);
+    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+  body.record canvas.stage { width: auto; height: auto; cursor: default; }
+  body.record .panel, body.record .fab, body.record .back, body.record .zoombar { display: none !important; }
+  #readout { font-size: 12px; color: var(--muted); margin-top: 8px; font-variant-numeric: tabular-nums; line-height: 1.5; }
+  #readout b { color: var(--fg); font-weight: 600; }
+  @media (max-width: 640px) { .zoombar { top: 38%; } }
+</style>
+</head>
+<body>
+<canvas id="c" class="stage"></canvas>
+<a class="back" href="../../">← All pieces</a>
+<div class="zoombar"><button id="zin" title="Zoom in (+)" aria-label="Zoom in">+</button><button id="zout" title="Zoom out (−)" aria-label="Zoom out">−</button><button id="zhome" title="Reset view (0)" aria-label="Reset view">⌂</button></div>
+
+<div id="panel" class="panel">
+  <h1>The Coastline Paradox</h1>
+  <p class="sub">Measure the island with a ruler, step by step. Then use a shorter ruler. The coast keeps getting longer.
+    Drag to move, scroll or pinch to zoom: there are wiggles at every scale.</p>
+
+  <div class="section-title">Coastlines</div>
+  <div class="chips" id="presets"></div>
+  <div class="row"><button id="random">🎲 Surprise me</button><button id="island">New island</button></div>
+
+  <div class="section"><div class="section-title">Measure</div>
+    <div id="ruler"></div>
+    <div class="row"><button id="measure" class="primary">Measure</button><button id="sweep">Sweep all rulers</button></div>
+    <div class="row"><button id="clear">Clear graph</button><button id="dive">Dive into the coast</button></div>
+    <div id="readout"></div>
+  </div>
+
+  <div class="section" id="controls"><div class="section-title">Tweak</div></div>
+
+  <div id="export"></div>
+
+  <div class="section">
+    <div class="section-title">The story</div>
+    <p class="story">In the 1950s the English scientist <b>Lewis Fry Richardson</b> wanted to know whether the
+      length of the border between two countries affected how likely they were to go to war. He found that
+      published figures disagreed wildly: Spain put its border with Portugal at 987 km, Portugal said 1,214 km.
+      Nobody had made a mistake. Measuring with a shorter ruler follows more bays and bends, so the answer
+      keeps growing. Plot length against ruler size on log scales and you get a straight line.<br><br>
+      In 1967 <b>Benoît Mandelbrot</b> asked <i>"How long is the coast of Britain?"</i> and explained the
+      slope of that line as a <b>fractional dimension</b>: about 1.25 for Britain's west coast, close to 1
+      for smooth South Africa, more for fjord-cut Norway. A curve with dimension above 1 is more than a line
+      but less than an area. The Koch snowflake (1904) is the perfect example: dimension log 4 / log 3 ≈ 1.2619,
+      and infinite length around a finite area.</p>
+  </div>
+  <div class="hintkeys">M measure · W sweep · N new island · D dive · +/− zoom · 0 reset · S save · V clip · H hide panel</div>
+</div>
+
+<script src="coast.js"></script>
+<script src="../../lib/ui.js"></script>
+<script>
+(() => {
+  'use strict';
+  const KM = 700;                      // km per world unit: islands are roughly Britain-sized (~1000 km tall)
+  const RMIN = 3, RMAX = 300;          // ruler range, km
+  const EPS = 0.0005;                  // finest coast segment used for measuring (0.35 km)
+  const BASE = { mode: 0, D: 1.25, seed: 7, ruler: 100, speed: 1, depth: 1, glow: 1, ui: 1 };
+  const PRESETS = {
+    'Britain':        { mode: 0, D: 1.25, seed: 7 },
+    'Norway (fjords)': { mode: 0, D: 1.5, seed: 21 },
+    'South Africa':   { mode: 0, D: 1.02, seed: 4 },
+    'Koch snowflake': { mode: 1 },
+  };
+
+  const q = new URLSearchParams(location.search);
+  const num = (k, d) => (q.has(k) && !isNaN(+q.get(k)) ? +q.get(k) : d);
+  const P = {};
+  for (const k in BASE) P[k] = num(k, BASE[k]);
+  Object.assign(P, { record: num('record', 0), w: num('w', 3840), h: num('h', 2160), fps: num('fps', 60),
+    auto: q.get('auto') || 'sweep', dive: num('dive', 0) });
+
+  const canvas = document.getElementById('c');
+  const ctx = canvas.getContext('2d', { alpha: false });
+  const bg = document.createElement('canvas'), bctx = bg.getContext('2d');   // cached map, redrawn when the view changes
+  let W = 0, H = 0, dpr = 1, U = 1;     // U: size unit in device px (1 at ~900 css px tall)
+  let coast, fineP, view, home, mapDirty = true;
+  let plot = [];                         // {r (km), L (km)} measurements for this coast
+  let job = null;                        // current animated walk: { w, R, t, dur, queue }
+  let shown = null;                      // last finished walk, kept on screen
+  let diving = null;
+
+  // ---------- coast ----------
+  function build() {
+    coast = CoastGen.create({ mode: P.mode, D: P.D, seed: P.seed });
+    fineP = coast.fine(EPS);
+    plot = []; job = null; shown = null; diving = null;
+    goHome(true); mapDirty = true;
+  }
+  function measureNow(rKm) {
+    const w = CoastGen.walk(fineP, rKm / KM);
+    return { w, R: rKm, L: w.length * KM };
+  }
+  function addPoint(m) {
+    plot = plot.filter(p => Math.abs(Math.log(p.r / m.R)) > 1e-6);
+    plot.push({ r: m.R, L: m.L }); plot.sort((a, b) => a.r - b.r);
+    updateReadout();
+  }
+  function startMeasure(rKm, dur) { job = { ...measureNow(rKm), t: 0, dur, queue: job?.queue || [] }; shown = null; }
+  function sweep() {
+    const n = 12, rs = Array.from({ length: n }, (_, i) => RMAX * 0.5 * Math.pow(RMIN / (RMAX * 0.5), i / (n - 1)));
+    plot = []; job = null;
+    startMeasure(rs[0], 1.1); job.queue = rs.slice(1);
+  }
+
+  // ---------- view: world point (ox, oy) at the screen centre, s px per world unit ----------
+  const panelW = () => (!P.record && innerWidth > 900 && !document.getElementById('panel').classList.contains('hidden') ? 312 * dpr : 0);
+  function goHome(instant) {
+    const b = coast.bbox, bw = b[2] - b[0], bh = b[3] - b[1];
+    const aw = W - panelW(), s = Math.min(aw / (bw * 1.25), H / (bh * 1.22));
+    const v = { s, ox: (b[0] + b[2]) / 2 + panelW() / 2 / s, oy: (b[1] + b[3]) / 2 };
+    home = v;
+    if (instant) setView(v); else animateTo(v);
+  }
+  function setView(v) { view = { ...v, s: Math.max(home ? home.s * 0.4 : 0, Math.min(v.s, (home ? home.s : v.s) * 1e10)) }; mapDirty = true; syncSoon(); }
+  const toWorld = (x, y) => [view.ox + (x - W / 2) / view.s, view.oy + (y - H / 2) / view.s];
+  const toScreen = (x, y) => [(x - view.ox) * view.s + W / 2, (y - view.oy) * view.s + H / 2];
+  function zoomAt(px, py, k) {   // k > 1 zooms in, keeping the point under the cursor fixed
+    const [wx, wy] = toWorld(px, py), s = view.s * k;
+    setView({ s, ox: wx - (px - W / 2) / s, oy: wy - (py - H / 2) / s });
+  }
+  function animateTo(v1, ms = 500) {
+    const v0 = { ...view }, t0 = performance.now();
+    const step = now => {
+      const u = Math.min(1, (now - t0) / ms), e = u * u * (3 - 2 * u);
+      const s = v0.s * Math.pow(v1.s / v0.s, e);
+      // interpolate the centre in screen-scaled terms so zooming out then in looks natural
+      setView({ s, ox: v0.ox + (v1.ox - v0.ox) * e, oy: v0.oy + (v1.oy - v0.oy) * e });
+      if (u < 1) requestAnimationFrame(step);
+    };
+    if (P.record) setView(v1); else requestAnimationFrame(step);
+  }
+  function animateZoom(px, py, k, ms = 280) {
+    const [wx, wy] = toWorld(px, py), s0 = view.s, t0 = performance.now();
+    (function step(now) {
+      const u = Math.min(1, (now - t0) / ms), e = u * u * (3 - 2 * u), s = s0 * Math.pow(k, e);
+      setView({ s, ox: wx - (px - W / 2) / s, oy: wy - (py - H / 2) / s });
+      if (u < 1) requestAnimationFrame(step);
+    })(t0);
+  }
+
+  // ---------- drawing ----------
+  function resize() {
+    if (P.record) { W = P.w; H = P.h; dpr = H / 1080; }
+    else { dpr = Math.min(devicePixelRatio || 1, 2); W = Math.round(innerWidth * dpr); H = Math.round(innerHeight * dpr); }
+    U = Math.min(W, H) / 900;
+    canvas.width = bg.width = W; canvas.height = bg.height = H;
+    if (coast) { const wasHome = !view || view === home || Math.abs(view.s / home.s - 1) < 1e-9; const old = view; goHome(true); if (!wasHome && old) setView(old); }
+    mapDirty = true;
+  }
+  function pathOf(pts, g) {
+    g.beginPath();
+    for (let i = 0; i < pts.length; i += 2) { const x = (pts[i] - view.ox) * view.s + W / 2, y = (pts[i + 1] - view.oy) * view.s + H / 2; i ? g.lineTo(x, y) : g.moveTo(x, y); }
+    g.closePath();
+  }
+  let visCount = 0;
+  function drawMap() {
+    const g = bctx, pts = coast.visible(view, W, H, Math.max(1.2, 1.6 * dpr), 140 * U);
+    visCount = pts.length / 2;
+    g.globalCompositeOperation = 'source-over';
+    // ocean: deep blue, lighter near the island
+    const [icx, icy] = toScreen((coast.bbox[0] + coast.bbox[2]) / 2, (coast.bbox[1] + coast.bbox[3]) / 2);
+    const R = Math.max(W, H) * 0.9 * Math.max(1, view.s / home.s);   // keeps the sea the same shade when zoomed in
+    const oc = g.createRadialGradient(icx, icy, 0, icx, icy, R);
+    oc.addColorStop(0, '#0b2140'); oc.addColorStop(0.55, '#06142a'); oc.addColorStop(1, '#03060f');
+    g.fillStyle = oc; g.fillRect(0, 0, W, H);
+    pathOf(pts, g);
+    g.lineJoin = 'round'; g.lineCap = 'round';
+    if (P.depth) {   // shallows: stacked translucent strokes make stepped depth bands
+      const bands = [130, 96, 68, 46, 30, 18, 9];
+      bands.forEach((w, i) => { g.lineWidth = w * U; g.strokeStyle = `hsla(${200 - i * 6},80%,${30 + i * 5}%,0.16)`; g.stroke(); });
+      g.lineWidth = 1.2 * U;
+      for (const w of [96, 46, 18]) { g.lineWidth = w * U + 1.6 * U; g.strokeStyle = 'rgba(140,220,255,0.06)'; g.stroke(); }
+    }
+    // land
+    const lg = g.createLinearGradient(0, icy - H * 0.5, 0, icy + H * 0.5);
+    lg.addColorStop(0, '#2c4a2e'); lg.addColorStop(0.5, '#1d3a26'); lg.addColorStop(1, '#16301f');
+    g.fillStyle = lg; g.fill();
+    g.save(); g.clip();
+    const hg = g.createRadialGradient(icx, icy - H * 0.05, 0, icx, icy, Math.min(W, H) * 0.45 * (view.s / home.s));
+    hg.addColorStop(0, 'rgba(120,110,70,0.35)'); hg.addColorStop(1, 'rgba(120,110,70,0)');
+    g.fillStyle = hg; g.fillRect(0, 0, W, H);
+    g.lineWidth = 34 * U; g.strokeStyle = 'rgba(70,130,70,0.22)'; g.stroke();     // lowlands
+    g.lineWidth = 10 * U; g.strokeStyle = 'rgba(232,206,150,0.45)'; g.stroke();   // beach
+    g.restore();
+    // glowing coastline
+    if (P.glow) {
+      g.globalCompositeOperation = 'lighter';
+      g.lineWidth = 6 * U; g.strokeStyle = 'rgba(80,220,255,0.18)'; g.stroke();
+      g.lineWidth = 3 * U; g.strokeStyle = 'rgba(120,235,255,0.35)'; g.stroke();
+    }
+    g.globalCompositeOperation = 'source-over';
+    g.lineWidth = 1.3 * U; g.strokeStyle = 'rgba(225,252,255,0.95)'; g.stroke();
+    mapDirty = false;
+  }
+
+  function drawWalk(m, frac) {
+    const p = m.w.pts, nSteps = m.w.steps + 1;                // +1: the partial step home
+    const k = Math.min(nSteps, Math.floor(frac * nSteps + 1e-9));
+    const g = ctx; g.lineJoin = 'round'; g.lineCap = 'round';
+    g.beginPath();
+    for (let i = 0; i <= k; i++) { const [x, y] = toScreen(p[2 * i], p[2 * i + 1]); i ? g.lineTo(x, y) : g.moveTo(x, y); }
+    g.globalCompositeOperation = 'lighter';
+    g.lineWidth = 6 * U; g.strokeStyle = 'rgba(255,170,60,0.25)'; g.stroke();
+    g.globalCompositeOperation = 'source-over';
+    g.lineWidth = 2 * U; g.strokeStyle = '#ffc56b'; g.stroke();
+    const rpx = m.R / KM * view.s, dot = Math.max(1.2 * U, Math.min(4 * U, rpx * 0.12));
+    g.fillStyle = '#fff3d6';
+    for (let i = 0; i <= k; i++) { const [x, y] = toScreen(p[2 * i], p[2 * i + 1]); if (x > -9 && y > -9 && x < W + 9 && y < H + 9) { g.beginPath(); g.arc(x, y, dot, 0, 7); g.fill(); } }
+    if (k < nSteps && frac < 1) {   // the dividers, mid-step
+      const [ax, ay] = toScreen(p[2 * k], p[2 * k + 1]), [bx, by] = toScreen(p[2 * k + 2], p[2 * k + 3]);
+      const u = frac * nSteps - k, ang = Math.atan2(by - ay, bx - ax), len = Math.hypot(bx - ax, by - ay);
+      // swing the free leg round the planted one, from behind to its landing point
+      const a = ang + (1 - u) * Math.PI * 0.6, tx = ax + Math.cos(a) * len, ty = ay + Math.sin(a) * len;
+      const mx = (ax + tx) / 2, my = (ay + ty) / 2, nx = -(ty - ay) / (len || 1), ny = (tx - ax) / (len || 1);
+      const hx = mx + nx * len * 0.55, hy = my + ny * len * 0.55;
+      g.lineWidth = 2.4 * U; g.strokeStyle = '#ffe9b8';
+      g.beginPath(); g.moveTo(ax, ay); g.lineTo(hx, hy); g.lineTo(tx, ty); g.stroke();
+      g.fillStyle = '#ffd27a'; g.beginPath(); g.arc(hx, hy, 3.5 * U, 0, 7); g.fill();
+      g.beginPath(); g.arc(tx, ty, 2.5 * U, 0, 7); g.fill();
+    }
+    return { steps: Math.min(k, m.w.steps), len: Math.min(k, m.w.steps) * m.R + (k >= nSteps ? m.w.rem * KM : 0) };
+  }
+
+  const fmtKm = v => (v >= 100 ? Math.round(v).toLocaleString() : v >= 10 ? v.toFixed(0) : v.toFixed(1));
+  function hud(text1, text2) {
+    const g = ctx, f = Math.round(15 * U * 1.1);
+    const x = 18 * U * 1.2, y = 18 * U * 1.2;
+    g.textAlign = 'left'; g.textBaseline = 'top';
+    g.font = `600 ${f}px system-ui, -apple-system, sans-serif`;
+    const w = Math.max(g.measureText(text1).width, (g.font = `500 ${Math.round(f * 0.82)}px system-ui, sans-serif`, g.measureText(text2).width)) + f * 1.4;
+    g.fillStyle = 'rgba(10,12,24,0.72)'; round(g, x, y, w, f * 3, f * 0.6); g.fill();
+    g.fillStyle = '#fff'; g.textBaseline = 'top'; g.font = `600 ${f}px system-ui, -apple-system, sans-serif`;
+    g.fillText(text1, x + f * 0.7, y + f * 0.55);
+    g.fillStyle = '#b9b9cc'; g.font = `500 ${Math.round(f * 0.82)}px system-ui, sans-serif`;
+    g.fillText(text2, x + f * 0.7, y + f * 1.75);
+    // scale bar
+    const nice = [1e-6, 2e-6, 5e-6].flatMap(b => [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(e => b * 10 ** e)).sort((a, b) => a - b);
+    const target = 120 * U, kmPerPx = KM / view.s, km = nice.find(v => v / kmPerPx >= target * 0.6) || 1e4, len = km / kmPerPx;
+    const sy = y + f * 3 + f * 0.9;
+    g.strokeStyle = '#fff'; g.lineWidth = 2 * U; g.beginPath(); g.moveTo(x, sy); g.lineTo(x + len, sy);
+    g.moveTo(x, sy - 5 * U); g.lineTo(x, sy + 5 * U); g.moveTo(x + len, sy - 5 * U); g.lineTo(x + len, sy + 5 * U); g.stroke();
+    g.fillStyle = '#fff'; g.font = `500 ${Math.round(f * 0.78)}px system-ui, sans-serif`;
+    g.fillText(km >= 1 ? `${+km.toPrecision(3)} km` : km >= 1e-3 ? `${+(km * 1000).toPrecision(3)} m` : `${+(km * 1e6).toPrecision(3)} mm`, x + len + 8 * U, sy - f * 0.4);
+  }
+  function round(g, x, y, w, h, r) { g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath(); }
+
+  // Richardson plot: log(length) against log(ruler)
+  function drawPlot() {
+    const g = ctx, small = !P.record && innerWidth < 640;
+    const pw = (small ? 200 : 290) * dpr * (P.record ? 1.2 : 1), ph = pw * 0.66;
+    const x0 = (P.record ? 30 : 16) * dpr, y0 = H - ph - (P.record ? 30 : 58) * dpr;
+    const f = Math.round(pw / 26);
+    g.fillStyle = 'rgba(10,12,24,0.78)'; round(g, x0, y0, pw, ph, f * 0.7); g.fill();
+    g.strokeStyle = 'rgba(255,255,255,0.12)'; g.lineWidth = 1 * dpr; g.stroke();
+    const L = x0 + f * 3.6, R = x0 + pw - f * 1.2, T = y0 + f * 2.4, B = y0 + ph - f * 2.6;
+    const lx0 = Math.log10(RMIN * 0.8), lx1 = Math.log10(RMAX * 1.05);
+    const Ls = plot.map(p => p.L), ly0 = Math.log10(Math.min(...Ls, 1500)) - 0.04, ly1 = Math.log10(Math.max(...Ls, 4000)) + 0.04;
+    const X = r => L + (Math.log10(r) - lx0) / (lx1 - lx0) * (R - L), Y = v => B - (Math.log10(v) - ly0) / (ly1 - ly0) * (B - T);
+    g.font = `600 ${f}px system-ui, sans-serif`; g.fillStyle = '#e8e8f0'; g.textBaseline = 'top'; g.textAlign = 'left';
+    g.fillText('Measured length vs ruler (log–log)', x0 + f * 0.9, y0 + f * 0.7);
+    g.font = `500 ${Math.round(f * 0.85)}px system-ui, sans-serif`; g.fillStyle = '#8a8aa0';
+    g.strokeStyle = 'rgba(255,255,255,0.10)';
+    for (const r of [3, 10, 30, 100, 300]) { const x = X(r); g.beginPath(); g.moveTo(x, T); g.lineTo(x, B); g.stroke(); g.textAlign = 'center'; g.fillText(r + ' km', x, B + f * 0.4); }
+    g.textAlign = 'right'; g.textBaseline = 'middle';
+    const ticks = [1000, 2000, 3000, 5000, 10000, 20000, 50000, 100000].filter(v => Math.log10(v) > ly0 && Math.log10(v) < ly1);
+    for (const v of ticks) { const y = Y(v); g.beginPath(); g.moveTo(L, y); g.lineTo(R, y); g.stroke(); g.fillText(v >= 1000 ? v / 1000 + 'k' : v, L - f * 0.4, y); }
+    g.textAlign = 'center'; g.textBaseline = 'top'; g.fillText('ruler length →', (L + R) / 2, B + f * 1.45);
+    const ft = CoastGen.fit(plot);
+    if (ft) {
+      g.strokeStyle = '#9f8cff'; g.lineWidth = 2 * dpr; g.beginPath();
+      const yv = r => 10 ** (ft.icpt + ft.slope * Math.log10(r));
+      g.moveTo(X(RMIN * 0.8), Y(yv(RMIN * 0.8))); g.lineTo(X(RMAX * 1.05), Y(yv(RMAX * 1.05))); g.save(); g.rect(L, T, R - L, B - T); g.clip(); g.stroke(); g.restore();
+    }
+    for (const p of plot) { g.fillStyle = '#ffc56b'; g.beginPath(); g.arc(X(p.r), Y(p.L), f * 0.32, 0, 7); g.fill(); }
+    g.textAlign = 'right'; g.textBaseline = 'top'; g.font = `600 ${f}px system-ui, sans-serif`;
+    g.fillStyle = '#c9bfff';
+    g.fillText(ft && plot.length >= 3 ? `D ≈ ${ft.D.toFixed(2)}  (true ${coast.trueD.toFixed(2)})` : `true D = ${coast.trueD.toFixed(2)}`, R, T + f * 0.2);
+  }
+
+  function frame(dt) {
+    if (job) {
+      job.t += dt * P.speed;
+      if (job.t >= job.dur + 0.25) {
+        addPoint(job); shown = job; const next = job.queue.shift(), queue = job.queue; job = null;
+        if (next !== undefined) { startMeasure(next, 1.1); job.queue = queue; }
+      }
+    }
+    if (diving) {
+      const k = Math.exp(dt * 0.9);
+      const s = view.s * k;
+      if (s > home.s * 1e9) { diving = null; goHome(); }
+      else {
+        // ease the target point to the screen centre while zooming
+        const [tx, ty] = diving.pt, cx = view.ox + (tx - view.ox) * Math.min(1, dt * 2.5), cy = view.oy + (ty - view.oy) * Math.min(1, dt * 2.5);
+        setView({ s, ox: cx, oy: cy });
+      }
+    }
+    draw();
+  }
+  function draw() {
+    if (mapDirty) drawMap();
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.drawImage(bg, 0, 0);
+    let t1, t2;
+    if (job) {
+      const r = drawWalk(job, Math.min(1, job.t / job.dur));
+      t1 = `Ruler ${fmtKm(job.R)} km · ${r.steps} steps`; t2 = `Coast so far: ${fmtKm(r.len)} km`;
+    } else if (shown) {
+      drawWalk(shown, 1);
+      t1 = `Ruler ${fmtKm(shown.R)} km → coast ${fmtKm(shown.L)} km`; t2 = `${shown.w.steps} steps + ${fmtKm(shown.w.rem * KM)} km back to the start`;
+    } else { t1 = 'How long is this coast?'; t2 = 'Press Measure, or Sweep all rulers'; }
+    if (P.ui) { hud(t1, t2); drawPlot(); }
+  }
+
+  function updateReadout() {
+    const el = document.getElementById('readout'); if (!el) return;
+    const ft = CoastGen.fit(plot);
+    const last = plot.length ? plot.reduce((a, b) => (a.r < b.r ? a : b)) : null, big = plot.length ? plot.reduce((a, b) => (a.r > b.r ? a : b)) : null;
+    el.innerHTML = !plot.length ? 'No measurements yet.'
+      : `${plot.length} measurement${plot.length > 1 ? 's' : ''}. ` +
+        (plot.length > 1 ? `Ruler ${fmtKm(big.r)} km → <b>${fmtKm(big.L)} km</b>; ruler ${fmtKm(last.r)} km → <b>${fmtKm(last.L)} km</b>.<br>` : '') +
+        (ft && plot.length >= 3 ? `Estimated dimension <b>D ≈ ${ft.D.toFixed(3)}</b> (true ${coast.trueD.toFixed(3)}).` : '');
+  }
+
+  // ---------- record mode ----------
+  if (P.record) {
+    document.body.classList.add('record');
+    resize(); build();
+    if (P.dive) diving = { pt: coast.divePoint(P.seed + 1) };
+    else if (P.auto === 'sweep') sweep();
+    window.__recorder = { ready: true, width: W, height: H, fps: P.fps,
+      frame(type = 'image/png', quality) { frame(1 / P.fps); return canvas.toDataURL(type, quality); },
+      estimate: () => CoastGen.fit(plot), points: () => plot.length };
+    return;
+  }
+
+  // ---------- interactive ----------
+  addEventListener('resize', resize);
+  resize(); build();
+  const $ = id => document.getElementById(id);
+  const panel = UI.panel($('panel'));
+  goHome(true);
+  setTimeout(sweep, 700);
+  let last = performance.now();
+  (function loop(now) {
+    const dt = Math.min(0.05, (now - last) / 1000); last = now;
+    frame(dt);
+    requestAnimationFrame(loop);
+  })(last);
+  UI.hint('coast-nav', matchMedia('(pointer: coarse)').matches ? 'Drag to move · pinch or double-tap to zoom in' : 'Drag to move · scroll or double-click to zoom in');
+
+  // pointer: drag = pan, two fingers = pinch, double-click / double-tap = zoom in
+  const pos = e => { const r = canvas.getBoundingClientRect(); return { x: (e.clientX - r.left) / r.width * W, y: (e.clientY - r.top) / r.height * H }; };
+  const touches = new Map(); let drag = null, pinch = null, lastTap = null;
+  const pinchState = () => { const [a, b] = [...touches.values()]; return { d: Math.hypot(a.x - b.x, a.y - b.y), x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }; };
+  canvas.addEventListener('pointerdown', e => {
+    canvas.setPointerCapture(e.pointerId); const p = pos(e); touches.set(e.pointerId, p); diving = null;
+    if (touches.size === 2) { drag = null; pinch = pinchState(); return; }
+    drag = { sx: p.x, sy: p.y, v0: { ...view }, moved: false }; canvas.classList.add('grabbing');
+  });
+  canvas.addEventListener('pointermove', e => {
+    if (!touches.has(e.pointerId)) return;
+    const p = pos(e); touches.set(e.pointerId, p);
+    if (pinch && touches.size >= 2) {   // the world point under the old midpoint follows the fingers
+      const s = pinchState(), [wx, wy] = toWorld(pinch.x, pinch.y), ns = view.s * s.d / pinch.d;
+      setView({ s: ns, ox: wx - (s.x - W / 2) / ns, oy: wy - (s.y - H / 2) / ns }); pinch = s; return;
+    }
+    if (!drag) return;
+    const dx = p.x - drag.sx, dy = p.y - drag.sy;
+    if (!drag.moved && Math.hypot(dx, dy) > 4 * dpr) drag.moved = true;
+    if (drag.moved) setView({ s: drag.v0.s, ox: drag.v0.ox - dx / drag.v0.s, oy: drag.v0.oy - dy / drag.v0.s });
+  });
+  const end = e => {
+    const p = pos(e); touches.delete(e.pointerId); canvas.classList.remove('grabbing');
+    if (pinch) { if (touches.size < 2) pinch = null; drag = null; return; }
+    if (drag && !drag.moved) {
+      const now = performance.now();
+      if (lastTap && now - lastTap.t < 350 && Math.hypot(p.x - lastTap.x, p.y - lastTap.y) < 30 * dpr) { lastTap = null; animateZoom(p.x, p.y, 2.5); }
+      else lastTap = { t: now, x: p.x, y: p.y };
+    }
+    drag = null;
+  };
+  canvas.addEventListener('pointerup', end);
+  canvas.addEventListener('pointercancel', e => { touches.delete(e.pointerId); pinch = null; drag = null; canvas.classList.remove('grabbing'); });
+  canvas.addEventListener('wheel', e => {
+    e.preventDefault(); diving = null;
+    const p = pos(e); zoomAt(p.x, p.y, Math.exp(-e.deltaY * (e.ctrlKey ? 0.01 : 0.0015)));
+  }, { passive: false });
+  $('zin').onclick = () => animateZoom(W / 2, H / 2, 2.5);
+  $('zout').onclick = () => animateZoom(W / 2, H / 2, 0.4);
+  $('zhome').onclick = () => { diving = null; goHome(); };
+
+  // panel
+  const c = $('controls');
+  const rulerSl = UI.slider($('ruler'), { id: 'rulerlen', label: 'Ruler length', min: Math.log10(RMIN), max: Math.log10(RMAX), step: 0.01, value: P.ruler,
+    toUi: v => Math.log10(v), fromUi: v => +(10 ** v).toPrecision(2), format: v => `${fmtKm(v)} km`,
+    onInput: v => { P.ruler = v; job = null; const m = measureNow(v); addPoint(m); shown = m; sync(); } });
+  const sl = {
+    D: UI.slider(c, { id: 'rough', label: 'Roughness (fractal dimension D)', min: 1.02, max: 1.5, step: 0.01, value: P.D, format: v => v.toFixed(2),
+      onInput: v => { P.D = v; P.mode = 0; buildSoon(); } }),
+    speed: UI.slider(c, { id: 'speed', label: 'Walking speed', min: 0.2, max: 4, step: 0.05, value: P.speed, format: v => v.toFixed(2) + '×', onInput: v => { P.speed = v; sync(); } }),
+    depth: UI.slider(c, { id: 'depth', label: 'Ocean depth bands', min: 0, max: 1, step: 1, value: P.depth, format: v => (v ? 'on' : 'off'), onInput: v => { P.depth = v; mapDirty = true; sync(); } }),
+    glow: UI.slider(c, { id: 'glow', label: 'Coast glow', min: 0, max: 1, step: 1, value: P.glow, format: v => (v ? 'on' : 'off'), onInput: v => { P.glow = v; mapDirty = true; sync(); } }),
+  };
+  let buildTimer; const buildSoon = () => { clearTimeout(buildTimer); buildTimer = setTimeout(() => { build(); sweep(); sync(); }, 120); };
+  function apply(s) { Object.assign(P, s); for (const k in sl) sl[k].set(P[k]); build(); sweep(); sync(); }
+  for (const name in PRESETS) { const b = document.createElement('button'); b.textContent = name; b.onclick = () => apply(PRESETS[name]); $('presets').appendChild(b); }
+  const newIsland = () => apply({ mode: 0, seed: 1 + Math.floor(Math.random() * 99999) });
+  $('island').onclick = newIsland;
+  $('random').onclick = () => apply({ mode: 0, seed: 1 + Math.floor(Math.random() * 99999), D: +(1.05 + Math.random() * 0.45).toFixed(2) });
+  $('measure').onclick = () => { diving = null; startMeasure(P.ruler, 3.2); job.queue = []; };
+  $('sweep').onclick = () => { diving = null; sweep(); };
+  $('clear').onclick = () => { plot = []; job = null; shown = null; updateReadout(); };
+  const dive = () => { if (diving) { diving = null; return; } job = null; diving = { pt: coast.divePoint(Math.floor(Math.random() * 1e6)) }; };
+  $('dive').onclick = dive;
+  const exp = UI.exportSection($('export'), { canvas, name: 'coastline-paradox', title: 'The Coastline Paradox' });
+  addEventListener('keydown', e => {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.metaKey || e.ctrlKey) return;
+    if (e.key === 'm') $('measure').click();
+    else if (e.key === 'w') sweep();
+    else if (e.key === 'n') newIsland();
+    else if (e.key === 'd') dive();
+    else if (e.key === 's') exp.save();
+    else if (e.key === 'v') exp.clip();
+    else if (e.key === 'h') panel.toggle();
+    else if (e.key === '+' || e.key === '=') animateZoom(W / 2, H / 2, 2.5);
+    else if (e.key === '-' || e.key === '_') animateZoom(W / 2, H / 2, 0.4);
+    else if (e.key === '0') { diving = null; goHome(); }
+    else if (e.key.startsWith('Arrow')) {
+      e.preventDefault(); const d = 0.15 * Math.min(W, H) / view.s;
+      const m = { ArrowLeft: [-d, 0], ArrowRight: [d, 0], ArrowUp: [0, -d], ArrowDown: [0, d] }[e.key];
+      setView({ ...view, ox: view.ox + m[0], oy: view.oy + m[1] });
+    }
+  });
+  updateReadout();
+  function sync() {
+    if (P.record) return;
+    const s = new URLSearchParams();
+    for (const k in BASE) s.set(k, +(+P[k]).toPrecision(6));
+    history.replaceState(null, '', '?' + s);
+  }
+  var syncTimer;
+  function syncSoon() { if (P.record) return; clearTimeout(syncTimer); syncTimer = setTimeout(sync, 300); }
+  sync();
+})();
+</script>
+</body>
+</html>

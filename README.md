@@ -14,6 +14,9 @@ Channel plan and idea backlog: [docs/channel-plan.md](docs/channel-plan.md)
 | Double pendulum chaos | `pieces/double-pendulum/index.html` | 1000 pendulums starting 0.00001° apart |
 | Lorenz attractor | `pieces/lorenz/index.html` | butterfly effect; drag to rotate, live σ/ρ/β |
 | Logistic map | `pieces/logistic-map/index.html` | zoomable bifurcation diagram, "Dive into infinity" |
+| Three-body problem | `pieces/three-body/index.html` | drop and throw planets; figure-eight, Pythagorean, butterfly-effect twin |
+| Mandelbrot set | `pieces/mandelbrot/index.html` | WebGL deep zoom (perturbation, ~1e12), Julia-set inset |
+| Coastline paradox | `pieces/coastline/index.html` | measure a fractal island with a ruler; live Richardson plot estimates D |
 
 Shared UI (export, share, record clip, presets, mobile layout): `lib/ui.js`, `lib/ui.css`.
 

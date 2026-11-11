@@ -21,6 +21,7 @@
   .zoombar button { width: 42px; height: 42px; padding: 0; font-size: 20px; line-height: 1; background: var(--panel);
     backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
   body.record .zoombar { display: none !important; }
+  @media (max-width: 640px) { .zoombar { left: auto; right: 12px; top: 12px; transform: none; } .zoombar button { width: 40px; height: 40px; } }
   body.record #wrap canvas { width: auto; height: auto; }
   body.record .panel, body.record .fab, body.record .back { display: none !important; }
   #eq { font: italic 15px "Times New Roman", serif; color: #fff; margin: 4px 0 8px; }

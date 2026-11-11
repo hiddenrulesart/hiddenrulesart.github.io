@@ -1,0 +1,409 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%2305050a'/%3E%3Cpath d='M6 16c0-6 9-9 10 0s10 6 10 0-9-9-10 0-10 6-10 0z' stroke='%239f8cff' stroke-width='1.6' fill='none'/%3E%3Ccircle cx='9' cy='12' r='2.6' fill='%23ffb35a'/%3E%3Ccircle cx='22' cy='20' r='2.6' fill='%235ad1ff'/%3E%3Ccircle cx='16' cy='16' r='2.6' fill='%23ff6bb5'/%3E%3C/svg%3E">
+<title>The Three-Body Problem</title>
+<meta name="description" content="Drop planets and watch gravity fling them around. Newton solved two bodies; nobody has ever solved three.">
+<meta property="og:title" content="The Three-Body Problem">
+<meta property="og:description" content="Drop planets and watch gravity fling them around. Newton solved two bodies; nobody has ever solved three.">
+<meta property="og:image" content="https://sirdevelop.github.io/generativeArt/assets/thumbs/three-body.jpg">
+<meta property="og:url" content="https://sirdevelop.github.io/generativeArt/pieces/three-body/">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="stylesheet" href="../../lib/ui.css">
+<style>
+  canvas.stage { cursor: crosshair; }
+  body.record canvas.stage { width: auto; height: auto; cursor: default; }
+  body.record .panel, body.record .fab, body.record .back, body.record .hud { display: none !important; }
+  .hud { position: fixed; left: 50%; top: 16px; transform: translateX(-50%); z-index: 8; pointer-events: none;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 999px; padding: 5px 12px;
+    font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .hud b { color: var(--fg); font-weight: 600; }
+  .hud:empty { display: none; }
+  @media (max-width: 640px) { .hud { top: 12px; font-size: 11px; } }
+  #eq { font: italic 13px "Times New Roman", serif; color: #c9c9d8; line-height: 1.6; }
+</style>
+</head>
+<body>
+<canvas id="c" class="stage"></canvas>
+<div class="hud" id="hud"></div>
+<a class="back" href="../../">← All pieces</a>
+
+<div id="panel" class="panel">
+  <h1>The Three-Body Problem</h1>
+  <p class="sub">Real Newtonian gravity. Tap to drop a planet into orbit, or drag to throw it.</p>
+
+  <div class="section-title">Presets</div>
+  <div class="chips" id="presets"></div>
+  <div class="row"><button id="random">🎲 Surprise me</button></div>
+
+  <div class="section" id="controls"><div class="section-title">Tweak</div></div>
+  <div class="row">
+    <button id="restart">Restart</button>
+    <button id="pause">Pause</button>
+    <button id="undo">Undo planet</button>
+  </div>
+  <div class="row"><button id="follow">Camera: follow</button></div>
+
+  <div id="export"></div>
+
+  <div class="section">
+    <div class="section-title">The story</div>
+    <div id="eq">a<sub>i</sub> = Σ<sub>j</sub> G m<sub>j</sub> (r<sub>j</sub> − r<sub>i</sub>) / |r<sub>j</sub> − r<sub>i</sub>|³</div>
+    <p class="story">In 1687 Isaac Newton's <i>Principia</i> solved two bodies exactly: a planet and the Sun trace a perfect
+      ellipse, forever. Add a third and the problem has defeated mathematicians ever since. In 1885 King Oscar II of Sweden
+      announced a prize for a solution. Henri Poincaré won it, then found a mistake in his own winning paper. Fixing it,
+      he discovered that some orbits are tangled beyond any simple formula: the first glimpse of <b>chaos</b>.
+      Order is rare: the <b>figure-eight</b>, found by computer in 1993 and proved in 2000, and the new families
+      discovered in 2013 are special starting points where three bodies chase each other forever.
+      Turn on <b>Twin universe</b> to run a second copy offset by a billionth and watch them disagree.</p>
+  </div>
+  <div class="hintkeys">Tap: drop planet · drag: throw · Space pause · R restart · U undo · S save · V record clip · H hide panel</div>
+</div>
+
+<script src="sim.js"></script>
+<script src="../../lib/ui.js"></script>
+<script>
+(() => {
+  'use strict';
+  const HUES = [32, 195, 325, 120, 270, 55, 0, 160, 220, 300, 90, 15];
+  const MAX_BODIES = 12;
+  // body: [x, y, vx, vy, m]
+  const v3 = [-0.93240737, -0.86473146];
+  const lagrange = (() => {   // three equal masses on an equilateral triangle, rotating rigidly
+    const s = Math.sqrt(3), w = Math.sqrt(3 / s ** 3), out = [];
+    for (let k = 0; k < 3; k++) { const t = k * 2 * Math.PI / 3 + Math.PI / 2; out.push([Math.cos(t), Math.sin(t), -w * Math.sin(t), w * Math.cos(t), 1]); }
+    return out;
+  })();
+  const SYSTEMS = {
+    fig8: { name: 'Figure-eight (2000)', soft: 0, bodies: [[0.97000436, -0.24308753, -v3[0] / 2, -v3[1] / 2, 1], [-0.97000436, 0.24308753, -v3[0] / 2, -v3[1] / 2, 1], [0, 0, v3[0], v3[1], 1]] },
+    bfly: { name: 'Butterfly I (2013)', soft: 0, trail: 7, bodies: [[-1, 0, 0.30689, 0.12551, 1], [1, 0, 0.30689, 0.12551, 1], [0, 0, -0.61378, -0.25102, 1]] },
+    pyth: { name: 'Pythagorean (1913)', soft: 0, trail: 4, bodies: [[1, 3, 0, 0, 3], [-2, -1, 0, 0, 4], [1, -1, 0, 0, 5]] },
+    lagr: { name: 'Lagrange triangle', soft: 0, trail: 6, bodies: lagrange },
+    sem:  { name: 'Sun, Earth, Moon', soft: 0, trail: 3, bodies: [[0, 0, 0, 0, 1], [1, 0, 0, Math.sqrt(1.01), 0.01], [1.05, 0, 0, Math.sqrt(1.01) + Math.sqrt(0.01 / 0.05), 1e-4]] },
+    twin: { name: 'Butterfly effect', soft: 0.01, twin: 1e-9, trail: 3, bodies: [[-1, 0.2, 0.1, -0.25, 1], [1, -0.1, -0.05, 0.3, 1], [0.2, 0.9, -0.2, 0, 1]] },
+    star: { name: 'Your solar system', soft: 0.01, trail: 6, bodies: [[0, 0, 0, 0, 5]] },
+  };
+  const BASE = { preset: 'fig8', speed: 1, trail: 5, soft: 0, twin: 0, mass: 1, glow: 0.7, follow: 1 };
+  const q = new URLSearchParams(location.search);
+  const num = (k, d) => (q.has(k) && !isNaN(+q.get(k)) ? +q.get(k) : d);
+  const P = { ...BASE };
+  P.preset = SYSTEMS[q.get('preset')] ? q.get('preset') : BASE.preset;
+  for (const k in BASE) if (k !== 'preset') P[k] = num(k, q.has('preset') ? BASE[k] : (SYSTEMS[P.preset][k] ?? BASE[k]));
+  Object.assign(P, { record: num('record', 0), w: num('w', 3840), h: num('h', 2160), fps: num('fps', 60), warm: num('warm', 0), zoom: num('zoom', 1), thick: num('thick', 1) });
+  const RATE = 1;   // simulation time units per second at speed 1
+  let custom = null;   // bodies from "Surprise me"
+
+  const canvas = document.getElementById('c');
+  const ctx = canvas.getContext('2d', { alpha: false });
+  const hud = document.getElementById('hud');
+  let W = 0, H = 0, sim, twin = null, paused = false, R0 = 1, viewMin = 0.25, aim = null;
+  const cam = { x: 0, y: 0, s: 100, user: 1 };
+  let trails = [], ttrails = [];   // per body: flat [x, y, t, ...] in world coordinates
+
+  const bodies = () => custom || SYSTEMS[P.preset].bodies;
+  const dpr = () => (P.record ? 1 : Math.min(devicePixelRatio || 1, 2));
+
+  function resize() {
+    if (P.record) { W = P.w; H = P.h; }
+    else { W = Math.round(innerWidth * dpr()); H = Math.round(innerHeight * dpr()); }
+    canvas.width = W; canvas.height = H;
+  }
+  function hookTrails(s, tr) {
+    const last = [];
+    s.onSub = () => {
+      for (let i = 0; i < s.n; i++) {
+        const t = tr[i] || (tr[i] = []), L = last[i] || (last[i] = [NaN, NaN, -1]);
+        const d2 = (s.x[i] - L[0]) ** 2 + (s.y[i] - L[1]) ** 2;
+        if (!(s.time - L[2] < 0.01 && d2 < 4e-4 * R0 * R0)) { t.push(s.x[i], s.y[i], s.time); L[0] = s.x[i]; L[1] = s.y[i]; L[2] = s.time; }
+      }
+    };
+  }
+  function build(list, offset) {
+    const s = ThreeBodySim.createSim(); s.eps = P.soft;
+    list.forEach((b, i) => s.add(b[0] + (i === 0 ? offset : 0), b[1], b[2], b[3], b[4]));
+    if (list.length > 1) s.center();
+    return s;
+  }
+  function restart() {
+    const list = bodies();
+    sim = build(list, 0); trails = []; hookTrails(sim, trails);
+    twin = P.twin > 0 ? build(list, P.twin) : null; ttrails = []; if (twin) hookTrails(twin, ttrails);
+    R0 = Math.max(0.3, ...list.map(b => Math.hypot(b[0], b[1])));
+    viewMin = list.length < 2 ? 2 : 0.25;   // a lone star: leave room around it to drop planets
+    if (P.warm) { sim.step(P.warm); twin && twin.step(P.warm); }
+    camera(true);
+  }
+
+  // which bodies are still part of the system (not on an escape trajectory)
+  function kept() {
+    const n = sim.n, keep = [];
+    let M = 0; for (let i = 0; i < n; i++) M += sim.m[i];
+    for (let i = 0; i < n; i++) {
+      const Mr = M - sim.m[i];
+      if (n < 3 || Mr <= 0) { keep.push(i); continue; }
+      let X = 0, Y = 0, VX = 0, VY = 0;
+      for (let j = 0; j < n; j++) if (j !== i) { X += sim.m[j] * sim.x[j]; Y += sim.m[j] * sim.y[j]; VX += sim.m[j] * sim.vx[j]; VY += sim.m[j] * sim.vy[j]; }
+      const dx = sim.x[i] - X / Mr, dy = sim.y[i] - Y / Mr, r = Math.hypot(dx, dy);
+      const E = 0.5 * ((sim.vx[i] - VX / Mr) ** 2 + (sim.vy[i] - VY / Mr) ** 2) - sim.G * M / r;
+      if (!(E > 0 && r > 3 * R0)) keep.push(i);
+    }
+    return keep.length ? keep : [...Array(n).keys()];
+  }
+  function camera(snap, dt = 0) {
+    let tx = 0, ty = 0, R = R0;
+    if (sim.n && P.follow) {
+      const k = kept(); let M = 0;
+      for (const i of k) { M += sim.m[i]; tx += sim.m[i] * sim.x[i]; ty += sim.m[i] * sim.y[i]; }
+      tx /= M; ty /= M;
+      R = 0;
+      for (const i of k) R = Math.max(R, Math.hypot(sim.x[i] - tx, sim.y[i] - ty));
+      R = Math.max(R * 1.08, 0.35 * R0, viewMin);
+    }
+    const ts = 0.44 * Math.min(W, H) / R * P.zoom;
+    if (snap) { cam.x = tx; cam.y = ty; cam.s = ts; return; }
+    const a = 1 - Math.exp(-dt * 1.5);
+    cam.x += (tx - cam.x) * a; cam.y += (ty - cam.y) * a;
+    cam.s = Math.exp(Math.log(cam.s) + (Math.log(ts) - Math.log(cam.s)) * a * 0.7);
+  }
+  const sx = x => W / 2 + (x - cam.x) * cam.s * cam.user;
+  const sy = y => H / 2 - (y - cam.y) * cam.s * cam.user;
+  const wx = X => cam.x + (X - W / 2) / (cam.s * cam.user);
+  const wy = Y => cam.y - (Y - H / 2) / (cam.s * cam.user);
+
+  function prune(tr, now) {
+    const cut = now - P.trail;
+    for (const t of tr) {
+      if (!t) continue;
+      let k = 0; while (k < t.length && t[k + 2] < cut) k += 3;
+      if (k > 3) t.splice(0, k - 3);
+    }
+  }
+
+  function drawTrails(s, tr, faint) {
+    const S = Math.min(W, H), lw = Math.max(1, S / 700) * P.thick, now = s.time;
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    for (let i = 0; i < s.n; i++) {
+      const t = tr[i]; if (!t || t.length < 6) continue;
+      const hue = HUES[i % HUES.length], m = t.length / 3, CH = 12;
+      for (let pass = 0; pass < (faint ? 1 : 2); pass++) {
+        ctx.lineWidth = faint ? lw : pass ? lw * 1.6 : lw * 6;
+        for (let a = 0; a < m - 1; a += CH) {
+          const e = Math.min(m - 1, a + CH), age = (now - t[3 * a + 2]) / P.trail;
+          const fade = Math.max(0, 1 - age) ** 1.5;
+          if (fade < 0.01) continue;
+          const alpha = faint ? 0.35 * fade : (pass ? 0.9 : 0.12) * fade * P.glow;
+          ctx.strokeStyle = faint ? `hsla(0,0%,85%,${alpha})` : `hsla(${hue},100%,${pass ? 68 : 58}%,${alpha})`;
+          ctx.beginPath(); ctx.moveTo(sx(t[3 * a]), sy(t[3 * a + 1]));
+          for (let j = a + 1; j <= e; j++) ctx.lineTo(sx(t[3 * j]), sy(t[3 * j + 1]));
+          if (e === m - 1) ctx.lineTo(sx(s.x[i]), sy(s.y[i]));
+          ctx.stroke();
+        }
+      }
+    }
+  }
+  function drawBodies(s, faint) {
+    const S = Math.min(W, H), lw = Math.max(1, S / 700) * P.thick;
+    for (let i = 0; i < s.n; i++) {
+      const X = sx(s.x[i]), Y = sy(s.y[i]), r = lw * (2.2 + 2.2 * Math.cbrt(s.m[i]));
+      if (faint) { ctx.strokeStyle = 'rgba(230,230,240,0.6)'; ctx.lineWidth = lw; ctx.beginPath(); ctx.arc(X, Y, r, 0, 7); ctx.stroke(); continue; }
+      const hue = HUES[i % HUES.length];
+      const g = ctx.createRadialGradient(X, Y, 0, X, Y, r * 5);
+      g.addColorStop(0, `hsla(${hue},100%,75%,${0.55 * P.glow + 0.2})`); g.addColorStop(1, `hsla(${hue},100%,60%,0)`);
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(X, Y, r * 5, 0, 7); ctx.fill();
+      ctx.fillStyle = `hsl(${hue},100%,${88}%)`; ctx.beginPath(); ctx.arc(X, Y, r, 0, 7); ctx.fill();
+    }
+  }
+
+  function drawAim() {
+    if (!aim) return;
+    const S = Math.min(W, H), lw = Math.max(1, S / 700) * P.thick;
+    const b = aimBody();
+    // predicted path: run a copy of the system with the new planet for a few time units
+    const c = sim.clone(); c.maxSub = 4000; c.add(...b); zeroMomentum([c]); const k = c.n - 1;
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.fillStyle = 'rgba(255,255,255,0.55)';
+    for (let i = 0; i < 90; i++) {
+      c.step(0.04);
+      ctx.beginPath(); ctx.arc(sx(c.x[k]), sy(c.y[k]), lw * 1.2, 0, 7); ctx.fill();
+    }
+    ctx.globalCompositeOperation = 'source-over';
+    const X0 = aim.x0, Y0 = aim.y0, X1 = aim.x1, Y1 = aim.y1;
+    ctx.strokeStyle = '#fff'; ctx.fillStyle = '#fff'; ctx.lineWidth = lw * 1.5;
+    ctx.beginPath(); ctx.arc(X0, Y0, lw * (2.2 + 2.2 * Math.cbrt(P.mass)), 0, 7); ctx.fill();
+    if (Math.hypot(X1 - X0, Y1 - Y0) > 8 * dpr()) {
+      const ang = Math.atan2(Y1 - Y0, X1 - X0), hl = lw * 9;
+      ctx.beginPath(); ctx.moveTo(X0, Y0); ctx.lineTo(X1, Y1); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(X1, Y1);
+      ctx.lineTo(X1 - hl * Math.cos(ang - 0.45), Y1 - hl * Math.sin(ang - 0.45));
+      ctx.lineTo(X1 - hl * Math.cos(ang + 0.45), Y1 - hl * Math.sin(ang + 0.45)); ctx.fill();
+    }
+  }
+
+  function draw() {
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.fillStyle = '#05050a'; ctx.fillRect(0, 0, W, H);
+    ctx.globalCompositeOperation = 'lighter';
+    if (twin) drawTrails(twin, ttrails, true);
+    drawTrails(sim, trails, false);
+    if (twin) drawBodies(twin, true);
+    drawBodies(sim, false);
+    ctx.globalCompositeOperation = 'source-over';
+    drawAim();
+  }
+
+  function advance(dt) {
+    const T = dt * RATE * P.speed;
+    sim.step(T); if (twin) twin.step(T);
+    prune(trails, sim.time); if (twin) prune(ttrails, twin.time);
+  }
+  let hudT = 0;
+  function updateHud(dt) {
+    if (P.record || (hudT -= dt) > 0) return; hudT = 0.2;
+    if (!twin) { hud.innerHTML = sim.n >= 2 ? `<b>${sim.n}</b> bodies · t = ${sim.time.toFixed(1)}` : ''; return; }
+    let d = 0; for (let i = 0; i < Math.min(sim.n, twin.n); i++) d = Math.max(d, Math.hypot(sim.x[i] - twin.x[i], sim.y[i] - twin.y[i]));
+    const f = d < 1e-3 ? d.toExponential(1).replace('e', '×10^') : d.toFixed(3);
+    hud.innerHTML = `Twin universes differ by <b>${f}</b>`;
+  }
+  function frame(dt) { advance(dt); camera(false, dt); draw(); updateHud(dt); }
+
+  if (P.record) {
+    document.body.classList.add('record');
+    resize(); restart(); draw();
+    window.__recorder = { ready: true, width: W, height: H, fps: P.fps,
+      frame(type = 'image/png', quality) { frame(1 / P.fps); return canvas.toDataURL(type, quality); } };
+    return;
+  }
+
+  addEventListener('resize', () => { resize(); camera(true); });
+  resize(); restart();
+  let last = performance.now();
+  (function loop(now) {
+    const dt = Math.min(0.05, (now - last) / 1000); last = now;
+    if (!paused) frame(dt); else { draw(); updateHud(dt); }
+    requestAnimationFrame(loop);
+  })(last);
+  UI.hint('threebody-drop', matchMedia('(pointer: coarse)').matches ? 'Tap to drop a planet · drag to throw it' : 'Click to drop a planet · drag to throw it');
+
+  // ---- drop planets: tap = circular orbit around the system, drag = throw with that velocity
+  function aimBody() {
+    const x = wx(aim.x0), y = wy(aim.y0);
+    const drag = Math.hypot(aim.x1 - aim.x0, aim.y1 - aim.y0);
+    if (drag <= 8 * dpr()) {   // tap: circular orbit around the centre of mass (counter-clockwise)
+      let M = 0, X = 0, Y = 0, VX = 0, VY = 0;
+      for (let i = 0; i < sim.n; i++) { M += sim.m[i]; X += sim.m[i] * sim.x[i]; Y += sim.m[i] * sim.y[i]; VX += sim.m[i] * sim.vx[i]; VY += sim.m[i] * sim.vy[i]; }
+      if (!M) return [x, y, 0, 0, P.mass];
+      X /= M; Y /= M; VX /= M; VY /= M;
+      const dx = x - X, dy = y - Y, r = Math.hypot(dx, dy) || 1e-3, v = Math.sqrt(sim.G * (M + P.mass) / r);
+      return [x, y, VX - v * dy / r, VY + v * dx / r, P.mass];
+    }
+    const s = 1.2 / (cam.s * cam.user);   // drag length in world units × 1.2 = speed
+    return [x, y, (aim.x1 - aim.x0) * s, -(aim.y1 - aim.y0) * s, P.mass];
+  }
+  const pts = new Map(); let pinch = 0;
+  const spread2 = () => { const [a, b] = [...pts.values()]; return Math.hypot(a.x - b.x, a.y - b.y); };
+  const at = e => ({ x: e.clientX * dpr(), y: e.clientY * dpr() });
+  canvas.addEventListener('pointerdown', e => {
+    canvas.setPointerCapture(e.pointerId); pts.set(e.pointerId, at(e));
+    if (pts.size === 1) { const p = at(e); aim = { x0: p.x, y0: p.y, x1: p.x, y1: p.y }; }
+    else { aim = null; pinch = spread2(); }
+  });
+  canvas.addEventListener('pointermove', e => {
+    if (!pts.has(e.pointerId)) return;
+    pts.set(e.pointerId, at(e));
+    if (pts.size >= 2) { const d = spread2(); if (pinch) cam.user = Math.max(0.05, Math.min(20, cam.user * d / pinch)); pinch = d; return; }
+    if (aim) { const p = at(e); aim.x1 = p.x; aim.y1 = p.y; }
+  });
+  const up = e => {
+    if (!pts.has(e.pointerId)) return;
+    pts.delete(e.pointerId); pinch = 0;
+    if (aim && e.type === 'pointerup' && pts.size === 0) addBody(aimBody());
+    aim = null;
+  };
+  canvas.addEventListener('pointerup', up); canvas.addEventListener('pointercancel', up);
+  canvas.addEventListener('wheel', e => { e.preventDefault(); cam.user = Math.max(0.05, Math.min(20, cam.user * Math.exp(-e.deltaY * 0.0015))); }, { passive: false });
+  const added = [];
+  function addBody(b) {
+    if (sim.n >= MAX_BODIES) return UI.toast(`That's ${MAX_BODIES} bodies. Restart or undo to add more.`);
+    sim.add(...b); added.push(sim.n - 1);
+    if (twin) twin.add(...b);
+    zeroMomentum();
+    R0 = Math.max(R0, Math.hypot(b[0] - cam.x, b[1] - cam.y) * 0.8);
+  }
+  function undo() {
+    if (!added.length) return UI.toast('No planets to undo');
+    const i = added.pop();
+    for (const s of [sim, twin]) if (s && i < s.n) { for (const k of ['x', 'y', 'vx', 'vy', 'm', 'ax', 'ay']) s[k].splice(i, 1); s.refresh(); }
+    trails.splice(i, 1); ttrails.splice(i, 1);
+    zeroMomentum();
+  }
+  // Galilean boost so the whole system doesn't drift off (positions and trails are untouched)
+  function zeroMomentum(list = [sim, twin]) {
+    for (const s of list) {
+      if (!s || s.n < 2) continue;
+      let M = 0, PX = 0, PY = 0;
+      for (let i = 0; i < s.n; i++) { M += s.m[i]; PX += s.m[i] * s.vx[i]; PY += s.m[i] * s.vy[i]; }
+      for (let i = 0; i < s.n; i++) { s.vx[i] -= PX / M; s.vy[i] -= PY / M; }
+    }
+  }
+
+  // ---- panel
+  const $ = id => document.getElementById(id);
+  const panel = UI.panel($('panel'));
+  const c = $('controls');
+  const fmtSmall = v => (v >= 0.01 ? `${+v.toPrecision(2)}` : v.toExponential(0));
+  const setSoft = v => { for (const s of [sim, twin]) if (s) { s.eps = v; s.refresh(); } };
+  const sl = {
+    speed: UI.slider(c, { id: 'speed', label: 'Speed', min: 0.1, max: 4, step: 0.05, value: P.speed, format: v => v.toFixed(2) + '×', onInput: v => { P.speed = v; sync(); } }),
+    trail: UI.slider(c, { id: 'trail', label: 'Trail length', min: 0.2, max: 30, step: 0.1, value: P.trail, format: v => v.toFixed(1), onInput: v => { P.trail = v; sync(); } }),
+    mass: UI.slider(c, { id: 'mass', label: 'New planet mass', min: -3, max: 1, step: 0.05, value: P.mass,
+      toUi: v => Math.log10(v), fromUi: v => +(10 ** v).toPrecision(2), format: fmtSmall, onInput: v => { P.mass = v; sync(); } }),
+    twin: UI.slider(c, { id: 'twin', label: 'Twin universe offset', min: -13, max: -1, step: 1, value: P.twin,
+      toUi: v => (v > 0 ? Math.log10(v) : -13), fromUi: v => (v <= -13 ? 0 : 10 ** v), format: v => (v ? v.toExponential(0) : 'off'),
+      onInput: v => { P.twin = v; restart(); sync(); } }),
+    soft: UI.slider(c, { id: 'soft', label: 'Softening (blurs close encounters)', min: -4, max: -0.7, step: 0.1, value: P.soft,
+      toUi: v => (v > 0 ? Math.log10(v) : -4), fromUi: v => (v <= -4 ? 0 : +(10 ** v).toPrecision(2)), format: v => (v ? String(v) : 'none'),
+      onInput: v => { P.soft = v; setSoft(v); sync(); } }),
+    glow: UI.slider(c, { id: 'glow', label: 'Brightness', min: 0.1, max: 1.5, step: 0.01, value: P.glow, format: v => v.toFixed(2), onInput: v => { P.glow = v; sync(); } }),
+  };
+  function apply(key, list) {
+    const S = SYSTEMS[key] || {};
+    custom = list || null; added.length = 0;
+    Object.assign(P, { preset: key, trail: S.trail ?? BASE.trail, soft: S.soft ?? BASE.soft, twin: S.twin ?? 0, warm: 0, zoom: 1 });
+    cam.user = 1; restart();
+    for (const k in sl) sl[k].set(P[k]); sync();
+  }
+  for (const key in SYSTEMS) { const b = document.createElement('button'); b.textContent = SYSTEMS[key].name; b.onclick = () => apply(key); $('presets').appendChild(b); }
+  $('random').onclick = () => {
+    const r = (a, b) => a + Math.random() * (b - a), n = Math.random() < 0.6 ? 3 : 4, list = [];
+    for (let i = 0; i < n; i++) { const a = r(0, 6.283), d = r(0.4, 1.2); list.push([d * Math.cos(a), d * Math.sin(a), r(-0.4, 0.4), r(-0.4, 0.4), +(10 ** r(-0.3, 0.4)).toFixed(2)]); }
+    apply('fig8', list); P.preset = 'random'; P.soft = 0.01; P.twin = Math.random() < 0.4 ? 1e-9 : 0; P.trail = 5; restart();
+    for (const k in sl) sl[k].set(P[k]); sync();
+  };
+  const exp = UI.exportSection($('export'), { canvas, name: 'three-body', title: 'The Three-Body Problem' });
+  const togglePause = () => { paused = !paused; $('pause').textContent = paused ? 'Play' : 'Pause'; };
+  $('restart').onclick = () => { added.length = 0; restart(); };
+  $('pause').onclick = togglePause; $('undo').onclick = undo;
+  const setFollow = () => ($('follow').textContent = `Camera: ${P.follow ? 'follow' : 'fixed'}`);
+  $('follow').onclick = () => { P.follow = P.follow ? 0 : 1; setFollow(); sync(); };
+  setFollow();
+  addEventListener('keydown', e => {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.metaKey || e.ctrlKey) return;
+    if (e.code === 'Space') { e.preventDefault(); togglePause(); }
+    else if (e.key === 'r') { added.length = 0; restart(); }
+    else if (e.key === 'u') undo();
+    else if (e.key === 's') exp.save();
+    else if (e.key === 'v') exp.clip();
+    else if (e.key === 'h') panel.toggle();
+  });
+  function sync() {
+    const s = new URLSearchParams();
+    if (P.preset !== 'random') s.set('preset', P.preset);
+    for (const k in BASE) if (k !== 'preset') s.set(k, +(+P[k]).toPrecision(6));
+    history.replaceState(null, '', '?' + s);
+  }
+})();
+</script>
+</body>
+</html>

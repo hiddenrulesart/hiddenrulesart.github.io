@@ -1,0 +1,549 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%2305050a'/%3E%3Ccircle cx='18.5' cy='16' r='7' fill='%239f8cff'/%3E%3Ccircle cx='9.5' cy='16' r='3.4' fill='%239f8cff'/%3E%3Ccircle cx='4.6' cy='16' r='1.3' fill='%239f8cff'/%3E%3Ccircle cx='18.5' cy='7.6' r='1.8' fill='%23ffb35a'/%3E%3Ccircle cx='18.5' cy='24.4' r='1.8' fill='%23ffb35a'/%3E%3C/svg%3E">
+<title>Mandelbrot Set</title>
+<meta name="description" content="z → z² + c. The most famous fractal: zoom in a trillion times and it never runs out of detail.">
+<meta property="og:title" content="The Mandelbrot Set">
+<meta property="og:description" content="z → z² + c. The most famous fractal: zoom in a trillion times and it never runs out of detail.">
+<meta property="og:image" content="https://sirdevelop.github.io/generativeArt/assets/thumbs/mandelbrot.jpg">
+<meta property="og:url" content="https://sirdevelop.github.io/generativeArt/pieces/mandelbrot/">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="stylesheet" href="../../lib/ui.css">
+<style>
+  #c { position: fixed; inset: 0; width: 100vw; height: 100vh; cursor: grab; touch-action: none; display: block; }
+  #c.grabbing { cursor: grabbing; }
+  .zoombar { position: fixed; left: 16px; top: 50%; transform: translateY(-50%); z-index: 8; display: flex; flex-direction: column; gap: 6px; }
+  .zoombar button { width: 42px; height: 42px; padding: 0; font-size: 20px; line-height: 1; background: var(--panel);
+    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+  #jbox { position: fixed; left: 12px; top: 12px; z-index: 8; background: var(--panel); border: 1px solid var(--line);
+    border-radius: 12px; padding: 6px; pointer-events: none; }
+  #jbox canvas { display: block; width: 170px; height: 170px; border-radius: 8px; }
+  #jbox .t { font-size: 11px; color: var(--muted); margin: 5px 2px 1px; max-width: 170px; }
+  #jbox .t b { color: var(--fg); font-weight: 600; }
+  #jbox.off { display: none; }
+  @media (max-width: 640px) { .zoombar { left: auto; right: 12px; top: 12px; transform: none; } .zoombar button { width: 40px; height: 40px; } }
+  @media (max-width: 640px) { #jbox canvas { width: 112px; height: 112px; } #jbox .t { max-width: 112px; font-size: 10px; } }
+  body.record #c { width: auto; height: auto; }
+  body.record .zoombar, body.record #jbox, body.record .panel, body.record .fab, body.record .back { display: none !important; }
+  #eq { font: italic 17px "Times New Roman", serif; color: #fff; margin: 4px 0 8px; }
+  #where { font-size: 12px; color: var(--muted); margin-top: 6px; font-variant-numeric: tabular-nums; line-height: 1.5; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<a class="back" href="../../">← All pieces</a>
+<div class="zoombar"><button id="zin" title="Zoom in (+)" aria-label="Zoom in">+</button><button id="zout" title="Zoom out (−)" aria-label="Zoom out">−</button><button id="zhome" title="Reset view (0)" aria-label="Reset view">⌂</button></div>
+<div id="jbox"><canvas id="jc"></canvas><div class="t" id="jt"></div></div>
+
+<div id="panel" class="panel">
+  <h1>The Mandelbrot Set</h1>
+  <p class="sub">Every pixel is a number <i>c</i>. Black means <i>z → z² + c</i> stays small forever; colours show how
+    fast it escapes. Drag to move, scroll or pinch to zoom, double-click to dive in.</p>
+
+  <div class="section-title">Places to visit</div>
+  <div class="chips" id="presets"></div>
+  <div class="row"><button id="dive" class="primary">Dive into infinity</button></div>
+  <div class="row"><button id="random">🎲 Surprise me</button><button id="back">← Zoom back</button></div>
+  <div id="where"></div>
+
+  <div class="section" id="controls"><div class="section-title">Tweak</div></div>
+  <div class="row"><button id="jtoggle">Julia inset: on</button></div>
+
+  <div id="export"></div>
+
+  <div class="section">
+    <div class="section-title">The story</div>
+    <div id="eq">z → z² + c</div>
+    <p class="story">Pick a number <i>c</i>. Start at <i>z</i> = 0, square it, add <i>c</i>, and repeat. Either
+      the numbers stay small forever, or they run off to infinity. The <b>Mandelbrot set</b> is every <i>c</i> that
+      stays small.<br><br>
+      Robert Brooks and Peter Matelski printed a rough picture of it in 1978. In 1980 Benoit Mandelbrot,
+      working at IBM, had computers draw it in detail, and the strange specks around it turned out to be
+      tiny copies of the whole thing. In 1982 Adrien Douady and John Hubbard proved all of it is connected:
+      every speck is joined to the rest by thin filaments.<br><br>
+      The top-left inset shows the <b>Julia set</b> for the <i>c</i> under your cursor: inside the Mandelbrot set it
+      is one connected piece; outside, it shatters into dust. And the line through the middle is the logistic
+      map from episode 3: the bulbs along it are the period doublings, and the
+      <i>Feigenbaum point</i> preset is where they pile up.</p>
+  </div>
+  <div class="hintkeys">Drag move · scroll zoom · double-click zoom in<br>
+    + / − zoom · 0 reset · arrows move · D dive · B back · J Julia · S save · V clip · H hide panel</div>
+</div>
+
+<script src="../../lib/ui.js"></script>
+<script>
+(() => {
+  'use strict';
+  const HOME = { cx: -0.6, cy: 0, s: 1.35 };          // s = half the view height, in the complex plane
+  const MIN_S = 2e-13;                                  // below this, 64-bit doubles run out of digits
+  const DIVE_TARGET = { cx: -0.7436438870371587, cy: 0.1318259042053120 };   // famous Seahorse Valley deep zoom
+  const VIEWS = {
+    'Full set':          { ...HOME },
+    'Seahorse Valley':   { cx: -0.7457, cy: 0.1127, s: 0.0050 },
+    'Elephant Valley':   { cx: 0.2925, cy: 0.0149, s: 0.0060 },
+    'Spiral':            { cx: -0.7746806106269039, cy: -0.1374168856037867, s: 1.2e-5 },
+    'Mini-Mandelbrot':   { cx: -1.7548776662466927, cy: 0, s: 0.022 },
+    'Feigenbaum point':  { cx: -1.4011551890920506, cy: 0, s: 0.0035 },
+    'Lightning':         { cx: -0.1010963638456221, cy: 0.9562865108091415, s: 0.0045 },
+  };
+  // colour palettes: [position, r, g, b]
+  const PALETTES = {
+    Ember:    [[0, 8, 4, 30], [0.18, 90, 20, 120], [0.42, 230, 70, 90], [0.62, 255, 170, 60], [0.8, 255, 245, 210], [1, 8, 4, 30]],
+    Ocean:    [[0, 0, 7, 100], [0.16, 32, 107, 203], [0.42, 237, 255, 255], [0.64, 255, 170, 0], [0.86, 0, 2, 0], [1, 0, 7, 100]],
+    Electric: [[0, 5, 0, 20], [0.25, 60, 10, 200], [0.5, 0, 220, 255], [0.7, 240, 255, 255], [0.85, 255, 60, 200], [1, 5, 0, 20]],
+    Rainbow:  null,
+    Ink:      [[0, 250, 245, 235], [0.5, 25, 22, 35], [1, 250, 245, 235]],
+  };
+  const PAL_NAMES = Object.keys(PALETTES);
+
+  const q = new URLSearchParams(location.search);
+  const num = (k, d) => (q.has(k) && !isNaN(+q.get(k)) ? +q.get(k) : d);
+  const P = { iter: num('iter', 400), pal: num('pal', 0), cycle: num('cycle', 1), offset: num('offset', 0),
+    smooth: num('smooth', 1), light: num('light', 1), record: num('record', 0), w: num('w', 3840), h: num('h', 2160),
+    fps: num('fps', 60), dive: num('dive', 0), rate: num('rate', 1) };
+  let view = { cx: num('cx', HOME.cx), cy: num('cy', HOME.cy), s: num('s', HOME.s) };
+  let diving = !!P.dive;
+
+  let canvas = document.getElementById('c');
+  let W = 0, H = 0, dpr = 1;
+  const maxIter = () => Math.min(50000, Math.round(P.iter * Math.pow(1 + 0.8 * Math.max(0, Math.log10(HOME.s / view.s)), 1.25)));
+
+  // ---- palette as 256 RGB entries (shared by GPU and CPU paths)
+  const PAL = new Uint8Array(256 * 4);
+  function buildPalette() {
+    const stops = PALETTES[PAL_NAMES[P.pal]];
+    for (let i = 0; i < 256; i++) {
+      const t = i / 256; let rgb;
+      if (!stops) { const h = t * 6; const f = k => { const x = (k + h) % 6; return 255 * Math.max(0, Math.min(1, Math.abs(x - 3) - 1)); };
+        rgb = [f(0), f(4), f(2)].map(v => 30 + v * 0.85); }
+      else { let k = 0; while (t > stops[k + 1][0]) k++;
+        const [t0, ...a] = stops[k], [t1, ...b] = stops[k + 1], u = (t - t0) / (t1 - t0);
+        rgb = a.map((v, c) => v + (b[c] - v) * u); }
+      PAL.set([rgb[0], rgb[1], rgb[2], 255], i * 4);
+    }
+  }
+  buildPalette();
+
+  // ---- reference orbit (perturbation theory): one point iterated in 64-bit JS doubles; the GPU only
+  // iterates each pixel's tiny *difference* from it in 32-bit floats, which keeps deep zooms sharp.
+  const REF_W = 4096, REF_ROWS = Math.ceil(50001 / REF_W);
+  const refBuf = new Float32Array(REF_W * REF_ROWS * 2);
+  let ref = { x: 0, y: 0, len: 1 };
+  function orbit(cx, cy, N, store) {
+    let x = 0, y = 0;
+    if (store) { refBuf[0] = 0; refBuf[1] = 0; }
+    for (let n = 1; n <= N; n++) {
+      const t = x * x - y * y + cx; y = 2 * x * y + cy; x = t;
+      if (x * x + y * y > 1e6) return n - 1;
+      if (store) { refBuf[2 * n] = x; refBuf[2 * n + 1] = y; }
+    }
+    return N;
+  }
+  function chooseRef(N) {
+    // the view centre, unless it escapes early: then the longest-lived point on a small grid
+    let best = { x: view.cx, y: view.cy, len: orbit(view.cx, view.cy, N, false) };
+    const hw = view.s * W / H;
+    for (let k = 1; k <= 3 && best.len < N; k++)
+      for (let i = -k; i <= k; i++) for (let j = -k; j <= k; j++) {
+        if (Math.max(Math.abs(i), Math.abs(j)) !== k) continue;
+        const x = view.cx + hw * i / 4, y = view.cy + view.s * j / 4, len = orbit(x, y, N, false);
+        if (len > best.len) best = { x, y, len };
+      }
+    best.len = Math.max(1, orbit(best.x, best.y, N, true));
+    ref = best;
+  }
+
+  // ---- WebGL2 renderer
+  const VS = `#version 300 es
+    out vec2 uv; void main() { vec2 p = vec2(float((gl_VertexID << 1) & 2), float(gl_VertexID & 2)); uv = p; gl_Position = vec4(p * 2.0 - 1.0, 0, 1); }`;
+  const FS = `#version 300 es
+    precision highp float; precision highp int;
+    uniform sampler2D uRef, uPal; uniform int uRefLen, uMax;
+    uniform vec2 uRes, uRefOff; uniform float uPs, uCycle, uOffset, uSmooth, uLight;
+    out vec4 o;
+    vec2 R(int m) { return texelFetch(uRef, ivec2(m & 4095, m >> 12), 0).xy; }
+    vec2 cm(vec2 a, vec2 b) { return vec2(a.x * b.x - a.y * b.y, a.x * b.y + a.y * b.x); }
+    void main() {
+      vec2 dc = (gl_FragCoord.xy - 0.5 * uRes) * uPs - uRefOff;
+      vec2 dz = vec2(0), z = vec2(0), d = vec2(0);
+      int m = 0, i = 0; float r2 = 0.0; bool esc = false;
+      for (i = 0; i < 50000; i++) {
+        if (i >= uMax) break;
+        d = 2.0 * cm(z, d) + vec2(1, 0);                  // dz/dc, for the 3D lighting
+        dz = 2.0 * cm(R(m), dz) + cm(dz, dz) + dc;        // perturbation: z = Z_ref + dz
+        m++;
+        z = R(m) + dz;
+        r2 = dot(z, z);
+        if (r2 > 1e6) { esc = true; break; }
+        if (r2 < dot(dz, dz) || m >= uRefLen) { dz = z; m = 0; }   // rebase onto the reference start
+        if (dot(d, d) > 1e30) d *= 1e-15;
+      }
+      if (!esc) { o = vec4(0.012, 0.008, 0.03, 1); return; }
+      float mu = float(i + 1);
+      if (uSmooth > 0.5) mu += 1.0 - log2(0.5 * log(r2) / log(2.0));
+      float t = sqrt(max(mu, 0.0)) * 0.11 * uCycle + uOffset;
+      vec3 col = texture(uPal, vec2(fract(t), 0.5)).rgb;
+      if (uLight > 0.5) {
+        // direction of z / d; normalise each first so nothing overflows 32-bit floats
+        vec2 zn = z / length(z), dn = d / length(d);
+        vec2 u = vec2(zn.x * dn.x + zn.y * dn.y, zn.y * dn.x - zn.x * dn.y);
+        float l = length(u);
+        if (l > 0.0 && !isinf(l) && !isnan(l)) {
+          u /= l;
+          float h = (dot(u, vec2(0.6, 0.8)) + 1.4) / 2.4;
+          col *= 0.3 + 0.85 * clamp(h, 0.0, 1.0);
+        }
+      }
+      o = vec4(col, 1);
+    }`;
+  const BLIT = `#version 300 es
+    precision highp float; uniform sampler2D uTex; in vec2 uv; out vec4 o; void main() { o = texture(uTex, uv); }`;
+
+  let gl = q.get('cpu') === '1' ? null : canvas.getContext('webgl2', { preserveDrawingBuffer: true, antialias: false, alpha: false });
+  let G = null;   // GPU resources
+  function initGL() {
+    const sh = (type, src) => { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s);
+      if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s)); return s; };
+    const prog = fs => { const p = gl.createProgram(); gl.attachShader(p, sh(gl.VERTEX_SHADER, VS)); gl.attachShader(p, sh(gl.FRAGMENT_SHADER, fs));
+      gl.linkProgram(p); if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p)); return p; };
+    const main = prog(FS), blit = prog(BLIT);
+    const U = {}; for (const n of ['uRef', 'uPal', 'uRefLen', 'uMax', 'uRes', 'uRefOff', 'uPs', 'uCycle', 'uOffset', 'uSmooth', 'uLight']) U[n] = gl.getUniformLocation(main, n);
+    const tex = (w, h, ifmt, fmt, type, filter) => { const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t);
+      gl.texImage2D(gl.TEXTURE_2D, 0, ifmt, w, h, 0, fmt, type, null);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, filter); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, filter);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE); return t; };
+    const refTex = tex(REF_W, REF_ROWS, gl.RG32F, gl.RG, gl.FLOAT, gl.NEAREST);
+    const palTex = tex(256, 1, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+    const fbo = gl.createFramebuffer();
+    G = { main, blit, U, refTex, palTex, fbo, fboTex: null, fw: 0, fh: 0, uBlit: gl.getUniformLocation(blit, 'uTex') };
+    uploadPalette();
+  }
+  function uploadPalette() {
+    if (!G) return;
+    gl.bindTexture(gl.TEXTURE_2D, G.palTex);
+    gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, 256, 1, gl.RGBA, gl.UNSIGNED_BYTE, PAL);
+  }
+  function uploadRef() {
+    gl.bindTexture(gl.TEXTURE_2D, G.refTex);
+    const rows = Math.ceil((ref.len + 1) / REF_W);
+    gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, REF_W, rows, gl.RG, gl.FLOAT, refBuf.subarray(0, rows * REF_W * 2));
+  }
+  function useMain(w, h) {
+    gl.useProgram(G.main);
+    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, G.refTex); gl.uniform1i(G.U.uRef, 0);
+    gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, G.palTex); gl.uniform1i(G.U.uPal, 1);
+    const ps = 2 * view.s / h;
+    gl.uniform1i(G.U.uRefLen, ref.len); gl.uniform1i(G.U.uMax, maxIter());
+    gl.uniform2f(G.U.uRes, w, h); gl.uniform2f(G.U.uRefOff, ref.x - view.cx, ref.y - view.cy);
+    gl.uniform1f(G.U.uPs, ps); gl.uniform1f(G.U.uCycle, P.cycle); gl.uniform1f(G.U.uOffset, P.offset);
+    gl.uniform1f(G.U.uSmooth, P.smooth); gl.uniform1f(G.U.uLight, P.light);
+  }
+  function gpuPreview(scale) {
+    const w = Math.max(1, Math.round(W * scale)), h = Math.max(1, Math.round(H * scale));
+    if (G.fw !== w || G.fh !== h) {
+      if (G.fboTex) gl.deleteTexture(G.fboTex);
+      G.fboTex = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, G.fboTex);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, G.fbo);
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, G.fboTex, 0);
+      G.fw = w; G.fh = h;
+    }
+    gl.bindFramebuffer(gl.FRAMEBUFFER, G.fbo); gl.disable(gl.SCISSOR_TEST);
+    gl.viewport(0, 0, w, h); useMain(w, h); gl.drawArrays(gl.TRIANGLES, 0, 3);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.viewport(0, 0, W, H);
+    gl.useProgram(G.blit); gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, G.fboTex); gl.uniform1i(G.uBlit, 0);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+  }
+  function gpuRows(y0, y1) {   // full-resolution strip, drawn straight onto the canvas (rows from the top)
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.viewport(0, 0, W, H);
+    gl.enable(gl.SCISSOR_TEST); gl.scissor(0, H - y1, W, y1 - y0);
+    useMain(W, H); gl.drawArrays(gl.TRIANGLES, 0, 3);
+    gl.disable(gl.SCISSOR_TEST);
+  }
+
+  // ---- CPU fallback (no WebGL2): plain doubles, progressive
+  let cctx = null, cimg = null;
+  function cpuPixel(cx, cy, N) {
+    let x = 0, y = 0, dx = 0, dy = 0, r2 = 0, i = 0;
+    for (; i < N; i++) {
+      const ndx = 2 * (x * dx - y * dy) + 1; dy = 2 * (x * dy + y * dx); dx = ndx;
+      const t = x * x - y * y + cx; y = 2 * x * y + cy; x = t; r2 = x * x + y * y;
+      if (r2 > 1e6) break;
+      if (dx * dx + dy * dy > 1e30) { dx *= 1e-15; dy *= 1e-15; }
+    }
+    if (i >= N) return [3, 2, 8];
+    let mu = i + 1; if (P.smooth) mu += 1 - Math.log2(0.5 * Math.log(r2) / Math.LN2);
+    let t = Math.sqrt(Math.max(mu, 0)) * 0.11 * P.cycle + P.offset; t -= Math.floor(t);
+    const k = Math.min(255, (t * 256) | 0) * 4; let f = 1;
+    if (P.light) { const ux = x * dx + y * dy, uy = y * dx - x * dy, l = Math.hypot(ux, uy);
+      if (l > 0 && isFinite(l)) f = 0.3 + 0.85 * Math.min(1, Math.max(0, ((ux * 0.6 + uy * 0.8) / l + 1.4) / 2.4)); }
+    return [PAL[k] * f, PAL[k + 1] * f, PAL[k + 2] * f];
+  }
+  function cpuRows(y0, y1, step) {
+    const N = maxIter(), ps = 2 * view.s / H, d = cimg.data;
+    for (let y = y0; y < y1; y += step) for (let x = 0; x < W; x += step) {
+      const [r, g, b] = cpuPixel(view.cx + (x + step / 2 - W / 2) * ps, view.cy - (y + step / 2 - H / 2) * ps, N);
+      for (let yy = y; yy < Math.min(H, y + step); yy++) for (let xx = x; xx < Math.min(W, x + step); xx++) {
+        const p = (yy * W + xx) * 4; d[p] = r; d[p + 1] = g; d[p + 2] = b; d[p + 3] = 255; }
+    }
+    cctx.putImageData(cimg, 0, 0, 0, y0, W, y1 - y0);
+  }
+
+  // ---- render scheduling: quick low-res preview after every change, then sharpen strip by strip
+  // GPU work is timed by the gap between animation frames (no readPixels stalls): if frames get slow,
+  // the preview gets coarser and the sharpening strips get thinner.
+  let dirty = true, lastChange = 0, fullY = 0, prevScale = 0.5, strip = 96, cpuStep = 8, lastWork = '';
+  function changed() { dirty = true; lastChange = performance.now(); }
+  function render(now, dt, budget) {
+    if (gl && dt > 0) {
+      if (lastWork === 'preview') prevScale = dt > 0.045 ? Math.max(0.2, prevScale * 0.8) : dt < 0.02 ? Math.min(1, prevScale * 1.1) : prevScale;
+      if (lastWork === 'strip') strip = dt > 0.04 ? Math.max(8, Math.round(strip * 0.6)) : dt < 0.022 ? Math.min(H, Math.round(strip * 1.35)) : strip;
+    }
+    lastWork = '';
+    if (dirty) {
+      dirty = false; fullY = 0;
+      if (gl) { chooseRef(maxIter()); uploadRef(); gpuPreview(prevScale); lastWork = 'preview'; }
+      else { cpuStep = 8; cpuRows(0, H, cpuStep); cpuStep = 4; }
+      return;
+    }
+    if (fullY >= H || now - lastChange < 120) return;
+    if (gl) { const y1 = Math.min(H, fullY + strip); gpuRows(fullY, y1); fullY = y1; lastWork = 'strip'; return; }
+    const t0 = performance.now();
+    while (fullY < H && performance.now() - t0 < budget) {
+      const y1 = Math.min(H, fullY + 16); cpuRows(fullY, y1, cpuStep); fullY = y1;
+      if (fullY >= H && cpuStep > 1) { cpuStep >>= 1; fullY = 0; }
+    }
+  }
+  function renderAll() {   // record mode / export: the whole frame at full resolution, synchronously
+    if (gl) { chooseRef(maxIter()); uploadRef(); gpuRows(0, H); }
+    else cpuRows(0, H, 1);
+    dirty = false; fullY = H;
+  }
+
+  function resize() {
+    if (P.record) { W = P.w; H = P.h; dpr = 1; }
+    else { dpr = Math.min(devicePixelRatio || 1, 2); W = Math.round(innerWidth * dpr); H = Math.round(innerHeight * dpr); }
+    canvas.width = W; canvas.height = H;
+    if (!gl) { cctx = canvas.getContext('2d'); cimg = cctx.createImageData(W, H); }
+    changed();
+  }
+
+  let maxToast = 0;
+  function clampView(v) {
+    let s = v.s;
+    if (s < MIN_S) { s = MIN_S; if (!P.record && performance.now() - maxToast > 2500) { maxToast = performance.now();
+      UI.toast('Max zoom reached: past this, the computer runs out of digits', 2600); } }
+    s = Math.min(s, 3);
+    return { cx: Math.max(-3, Math.min(3, v.cx)), cy: Math.max(-3, Math.min(3, v.cy)), s };
+  }
+  function diveStep(dt) {
+    view = clampView({ ...view, s: view.s * Math.pow(2, -P.rate * dt) });
+    if (view.s <= MIN_S) { diving = false; if (!P.record) UI.toast('Max zoom reached: trillions of times!'); }
+    changed();
+  }
+
+  if (gl) { try { initGL(); } catch (e) {
+    console.info('WebGL2 init failed, using the CPU renderer', e); gl = null;
+    const fresh = canvas.cloneNode(); canvas.replaceWith(fresh); canvas = fresh;   // a canvas can't switch from webgl2 to 2d
+  } }
+
+  if (P.record) {
+    document.body.classList.add('record');
+    resize(); renderAll();
+    window.__recorder = { ready: true, width: W, height: H, fps: P.fps,
+      frame(type = 'image/png', quality) { if (diving) diveStep(1 / P.fps); renderAll(); return canvas.toDataURL(type, quality); } };
+    return;
+  }
+
+  // ---- interactive
+  const $ = id => document.getElementById(id);
+  const history_ = [];
+  let syncTimer;
+  function setView(v) {
+    view = clampView(v); changed(); updateWhere();
+    clearTimeout(syncTimer); syncTimer = setTimeout(sync, 300);
+  }
+  function go(v, push = true) { if (push) history_.push(view); diving = false; setView(v); sync(); }
+  const ps = () => 2 * view.s / H;
+  const toC = (px, py) => [view.cx + (px - W / 2) * ps(), view.cy - (py - H / 2) * ps()];
+  function zoomAt(px, py, k) {
+    const [x, y] = toC(px, py);
+    setView({ cx: x + (view.cx - x) * k, cy: y + (view.cy - y) * k, s: view.s * k });
+  }
+  function animateZoom(px, py, k, ms = 280) {
+    history_.push(view); diving = false;
+    const t0 = performance.now(), v0 = view, [x, y] = toC(px, py);
+    (function step(now) {
+      const u = Math.min(1, (now - t0) / ms), e = u * u * (3 - 2 * u), kk = Math.pow(k, e);
+      setView({ cx: x + (v0.cx - x) * kk, cy: y + (v0.cy - y) * kk, s: v0.s * kk });
+      if (u < 1) requestAnimationFrame(step);
+    })(t0);
+  }
+
+  // ---- Julia inset: the Julia set for the c under the cursor (CPU, small)
+  const jc = $('jc'), jctx = jc.getContext('2d');
+  let julia = { on: !matchMedia('(max-width: 380px)').matches, c: null, drawn: null };
+  function inSet(cx, cy) { let x = 0, y = 0; for (let i = 0; i < 600; i++) { const t = x * x - y * y + cx; y = 2 * x * y + cy; x = t; if (x * x + y * y > 4) return false; } return true; }
+  function drawJulia() {
+    if (!julia.on || !julia.c || julia.drawn === julia.c) return;
+    julia.drawn = julia.c;
+    const [cx, cy] = julia.c, sz = Math.round(jc.getBoundingClientRect().width * Math.min(dpr, 1.5)) || 170;
+    if (jc.width !== sz) { jc.width = jc.height = sz; }
+    const im = jctx.createImageData(sz, sz), d = im.data, R = 1.8, N = 250;
+    for (let j = 0; j < sz; j++) for (let i = 0; i < sz; i++) {
+      let x = (i / sz * 2 - 1) * R, y = (1 - j / sz * 2) * R, n = 0;
+      for (; n < N; n++) { const t = x * x - y * y + cx; y = 2 * x * y + cy; x = t; if (x * x + y * y > 16) break; }
+      const p = (j * sz + i) * 4;
+      if (n >= N) { d[p] = 230; d[p + 1] = 225; d[p + 2] = 255; }
+      else { const k = Math.min(255, (Math.sqrt(n) * 0.11 * 256 * P.cycle + P.offset * 256) & 255) * 4, f = Math.min(1, n / 25);
+        d[p] = PAL[k] * f; d[p + 1] = PAL[k + 1] * f; d[p + 2] = PAL[k + 2] * f; }
+      d[p + 3] = 255;
+    }
+    jctx.putImageData(im, 0, 0);
+    const fmt = v => v.toFixed(Math.min(8, Math.max(3, Math.ceil(-Math.log10(view.s)) + 2)));
+    $('jt').innerHTML = `Julia set for c = ${fmt(cx)} ${cy < 0 ? '−' : '+'} ${fmt(Math.abs(cy))}i<br>` +
+      (inSet(cx, cy) ? '<b>c is in the set:</b> one connected piece' : '<b>c is outside:</b> it shatters into dust');
+  }
+  function setJuliaOn(on) { julia.on = on; $('jbox').classList.toggle('off', !on); $('jtoggle').textContent = `Julia inset: ${on ? 'on' : 'off'}`; julia.drawn = null; }
+
+  function updateWhere() {
+    const z = HOME.s / view.s, zs = z < 1e4 ? z.toFixed(z < 10 ? 1 : 0) : z.toExponential(1).replace('e+', '×10^');
+    const dg = Math.max(4, Math.ceil(-Math.log10(view.s)) + 3);
+    $('where').innerHTML = `Zoom ${zs}× · ${maxIter().toLocaleString()} iterations<br>c = ${view.cx.toFixed(dg)} ${view.cy < 0 ? '−' : '+'} ${Math.abs(view.cy).toFixed(dg)}i`;
+  }
+
+  addEventListener('resize', resize);
+  resize(); updateWhere();
+  julia.c = [view.cx, view.cy]; setJuliaOn(julia.on);
+  if (gl) canvas.addEventListener('webglcontextlost', e => { e.preventDefault(); UI.toast('Graphics reset, redrawing…'); });
+  if (gl) canvas.addEventListener('webglcontextrestored', () => { try { initGL(); changed(); } catch { location.reload(); } });
+  let last = performance.now();
+  (function loop(now) {
+    const dt = Math.min(0.05, (now - last) / 1000); last = now;
+    if (diving) { diveStep(dt); updateWhere(); }
+    if (!(gl && gl.isContextLost())) render(now, dt, 14);
+    drawJulia();
+    requestAnimationFrame(loop);
+  })(last);
+  UI.hint('mandelbrot-nav', matchMedia('(pointer: coarse)').matches
+    ? 'Drag to move · pinch or double-tap to zoom'
+    : 'Drag to move · scroll to zoom · double-click to dive in');
+
+  // ---- pointer input: drag = pan, two fingers = pinch zoom, double-click/tap = zoom in, wheel = zoom at cursor
+  const pos = e => { const r = canvas.getBoundingClientRect(); return { x: (e.clientX - r.left) / r.width * W, y: (e.clientY - r.top) / r.height * H }; };
+  const touches = new Map(); let pinch = null, lastTap = null, drag = null;
+  const pinchState = () => { const [a, b] = [...touches.values()]; return { d: Math.hypot(a.x - b.x, a.y - b.y), x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }; };
+  canvas.addEventListener('pointerdown', e => {
+    canvas.setPointerCapture(e.pointerId); const p = pos(e); touches.set(e.pointerId, p);
+    if (touches.size === 2) { drag = null; history_.push(view); diving = false; pinch = pinchState(); return; }
+    drag = { sx: p.x, sy: p.y, v0: view, pushed: false };
+    canvas.classList.add('grabbing');
+  });
+  canvas.addEventListener('pointermove', e => {
+    const p = pos(e);
+    if (e.pointerType === 'mouse' && !drag) julia.c = toC(p.x, p.y);
+    if (touches.has(e.pointerId)) touches.set(e.pointerId, p);
+    if (pinch && touches.size >= 2) { const s = pinchState(); zoomAt(s.x, s.y, pinch.d / s.d); pinch = s; return; }
+    if (!drag) return;
+    const dx = p.x - drag.sx, dy = p.y - drag.sy;
+    if (!drag.pushed && Math.hypot(dx, dy) > 4 * dpr) { history_.push(drag.v0); drag.pushed = true; diving = false; }
+    if (drag.pushed) { const k = 2 * drag.v0.s / H; setView({ ...drag.v0, cx: drag.v0.cx - dx * k, cy: drag.v0.cy + dy * k }); }
+  });
+  const end = e => {
+    const p = pos(e); touches.delete(e.pointerId); canvas.classList.remove('grabbing');
+    if (pinch) { if (touches.size < 2) pinch = null; return; }
+    if (drag && !drag.pushed) {   // a click/tap without moving
+      const now = performance.now();
+      if (lastTap && now - lastTap.t < 350 && Math.hypot(p.x - lastTap.x, p.y - lastTap.y) < 30 * dpr) { lastTap = null; animateZoom(p.x, p.y, 0.5); }
+      else { lastTap = { t: now, x: p.x, y: p.y }; julia.c = toC(p.x, p.y); }
+    }
+    drag = null;
+  };
+  canvas.addEventListener('pointerup', end);
+  canvas.addEventListener('pointercancel', e => { touches.delete(e.pointerId); pinch = null; drag = null; canvas.classList.remove('grabbing'); });
+  let wheelPushed = 0;
+  canvas.addEventListener('wheel', e => {
+    e.preventDefault(); diving = false;
+    if (performance.now() - wheelPushed > 600) history_.push(view);
+    wheelPushed = performance.now();
+    const p = pos(e); zoomAt(p.x, p.y, Math.exp(e.deltaY * (e.ctrlKey ? 0.01 : 0.0015)));
+  }, { passive: false });
+  $('zin').onclick = () => animateZoom(W / 2, H / 2, 0.5);
+  $('zout').onclick = () => animateZoom(W / 2, H / 2, 2);
+  $('zhome').onclick = () => go({ ...HOME });
+
+  const panel = UI.panel($('panel'));
+  for (const name in VIEWS) { const b = document.createElement('button'); b.textContent = name; b.onclick = () => go({ ...VIEWS[name] }); $('presets').appendChild(b); }
+  function startDive() {
+    if (diving) { diving = false; $('dive').textContent = 'Dive into infinity'; return; }
+    history_.push(view);
+    if (view.s > 0.05) view = { ...DIVE_TARGET, s: 0.3 };   // from far out: head for the Seahorse Valley
+    diving = true; changed(); $('dive').textContent = 'Stop diving';
+  }
+  $('dive').onclick = startDive;
+  $('back').onclick = () => history_.length && go(history_.pop(), false);
+  // Surprise me: walk along a random ray from inside the set until we hit its edge, then zoom there
+  $('random').onclick = () => {
+    const a = Math.random() * Math.PI * 2, N = 4000;
+    let lo = [-0.15, 0], hi = [-0.15 + 3 * Math.cos(a), 3 * Math.sin(a)];
+    for (let i = 0; i < 60; i++) { const m = [(lo[0] + hi[0]) / 2, (lo[1] + hi[1]) / 2]; (orbit(m[0], m[1], N, false) >= N ? (lo = m) : (hi = m)); }
+    P.pal = Math.floor(Math.random() * PAL_NAMES.length); P.offset = +Math.random().toFixed(2);
+    buildPalette(); uploadPalette(); sl.pal.set(P.pal); sl.offset.set(P.offset); julia.drawn = null;
+    go({ cx: hi[0], cy: hi[1], s: Math.pow(10, -1.5 - Math.random() * 4.5) });
+  };
+  const c = $('controls');
+  const restyle = () => { changed(); julia.drawn = null; sync(); };
+  const sl = {
+    iter: UI.slider(c, { id: 'iter', label: 'Detail', min: Math.log10(50), max: Math.log10(20000), step: 0.01, value: P.iter,
+      toUi: Math.log10, fromUi: v => Math.round(10 ** v), format: v => `${v} iterations (more when deep)`, onInput: v => { P.iter = v; updateWhere(); restyle(); } }),
+    pal: UI.slider(c, { id: 'pal', label: 'Palette', min: 0, max: PAL_NAMES.length - 1, step: 1, value: P.pal, format: v => PAL_NAMES[v],
+      onInput: v => { P.pal = v; buildPalette(); uploadPalette(); restyle(); } }),
+    cycle: UI.slider(c, { id: 'cycle', label: 'Colour bands', min: -1, max: 1.3, step: 0.01, value: P.cycle,
+      toUi: Math.log10, fromUi: v => +(10 ** v).toPrecision(3), format: v => v.toFixed(2) + '×', onInput: v => { P.cycle = v; restyle(); } }),
+    offset: UI.slider(c, { id: 'offset', label: 'Colour shift', min: 0, max: 1, step: 0.01, value: P.offset, format: v => v.toFixed(2), onInput: v => { P.offset = v; restyle(); } }),
+    smooth: UI.slider(c, { id: 'smooth', label: 'Smooth colours', min: 0, max: 1, step: 1, value: P.smooth, format: v => (v ? 'on' : 'off (bands)'), onInput: v => { P.smooth = v; restyle(); } }),
+    light: UI.slider(c, { id: 'light', label: '3D lighting', min: 0, max: 1, step: 1, value: P.light, format: v => (v ? 'on' : 'off'), onInput: v => { P.light = v; restyle(); } }),
+  };
+  $('jtoggle').onclick = () => setJuliaOn(!julia.on);
+  const exp = UI.exportSection($('export'), { canvas, name: 'mandelbrot', title: 'The Mandelbrot Set' });
+  // make sure saved images are fully sharp, not a half-finished preview
+  const sharpen = f => () => { if (fullY < H || dirty) renderAll(); f(); };
+  const save = sharpen(exp.save);
+  document.querySelector('#export [data-a=save]').onclick = save;
+  addEventListener('keydown', e => {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.metaKey || e.ctrlKey) return;
+    if (e.key === 's') save();
+    else if (e.key === 'v') exp.clip();
+    else if (e.key === 'd') startDive();
+    else if (e.key === 'b') $('back').click();
+    else if (e.key === 'j') setJuliaOn(!julia.on);
+    else if (e.key === 'h') panel.toggle();
+    else if (e.key === '+' || e.key === '=') animateZoom(W / 2, H / 2, 0.5);
+    else if (e.key === '-' || e.key === '_') animateZoom(W / 2, H / 2, 2);
+    else if (e.key === '0') go({ ...HOME });
+    else if (e.key.startsWith('Arrow')) {
+      e.preventDefault();
+      const k = view.s * 0.3, d = { ArrowLeft: [-k, 0], ArrowRight: [k, 0], ArrowUp: [0, k], ArrowDown: [0, -k] }[e.key];
+      diving = false; setView({ ...view, cx: view.cx + d[0], cy: view.cy + d[1] });
+    }
+  });
+  setInterval(() => {
+    if (diving) sync();
+    else if ($('dive').textContent !== 'Dive into infinity') $('dive').textContent = 'Dive into infinity';
+  }, 500);
+  function sync() {
+    const s = new URLSearchParams();
+    s.set('cx', view.cx.toPrecision(17)); s.set('cy', view.cy.toPrecision(17)); s.set('s', view.s.toPrecision(6));
+    for (const k of ['iter', 'pal', 'cycle', 'offset', 'smooth', 'light']) s.set(k, +(+P[k]).toPrecision(4));
+    history.replaceState(null, '', '?' + s);
+  }
+})();
+</script>
+</body>
+</html>

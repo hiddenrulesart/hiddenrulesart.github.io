@@ -55,12 +55,12 @@ is "the lab": every piece from the series, playable.
   - Cliffhanger: "This is why we can't forecast weather past 10 days. And in 1961, one man found out by accident…"
 - [x] **2. Lorenz attractor.** Piece: `pieces/lorenz`. Script: `videos/02-lorenz/script.md` (draft, no video yet). "Why weather forecasts fail after 10 days." Lorenz rounded one number in a weather sim in 1961 and discovered chaos. Reveal: chaos has a beautiful shape. Glowing particle trails, rotate in 3D.
 - [x] **3. Logistic map / bifurcation.** Piece: `pieces/logistic-map`. Script: `videos/03-logistic-map/script.md` (draft, no video yet). "How order turns into chaos." Reveal: 4.669 (Feigenbaum constant) appears in every chaotic system. Infinite zoom.
-- [ ] **4. Three-body problem.** "Why can't we predict three planets?" Viewers drop planets and watch them fling each other.
+- [x] **4. Three-body problem.** Piece: `pieces/three-body`. Script: `videos/04-three-body/script.md` (draft, no video yet). "Why can't we predict three planets?" Viewers drop planets and watch them fling each other.
   - Season finale: chaos isn't noise. It has infinite self-similar structure, which leads into fractals.
 
 ### Season 2: Infinity / Fractals
-- [ ] Mandelbrot set (infinite zoom)
-- [ ] Coastline paradox: "How long is Britain's coast?"
+- [x] **5. Mandelbrot set** (infinite zoom). Piece: `pieces/mandelbrot`. Script: `videos/05-mandelbrot/script.md` (draft).
+- [x] **6. Coastline paradox**: "How long is Britain's coast?" Piece: `pieces/coastline`. Script: `videos/06-coastline/script.md` (draft; Spain/Portugal figures to verify).
 - [ ] Trees and ferns from simple rules (L-systems, Barnsley fern)
 
 ### Season 3: Emergence ("How does complexity come from simple rules?")
@@ -81,3 +81,4 @@ is "the lab": every piece from the series, playable.
 - 2026-11-10: Plan written. Double pendulum piece built (interactive + record mode, tools/record.mjs). Defaults 150°/150°, spread 1e-5° → chaos at ~11s; 1e-7° → ~17s. Next: record a real video, then Lorenz attractor.
 - 2026-11-10: Repo made public; GitHub Pages live at https://sirdevelop.github.io/generativeArt/ (deploys from main /). Episode 1 full build pipeline done (videos/01-double-pendulum/build.mjs).
 - 2026-11-10: Site UX pass: shared lib/ui.js + lib/ui.css (all pieces get PNG/JPG/WebP export, 6s MP4/WebM clip recording, native share sheet with fallback links, presets, Surprise me, fullscreen, first-visit hint, phone bottom-sheet + pinch zoom, story box). Gallery redesigned with thumbnails (assets/thumbs, also social preview og:image). Lorenz + logistic map pieces built; ep 2 + 3 scripts drafted. Ep 1 video not re-rendered since the pendulum page UI changed (its website-capture scene will show the new panel on next build).
+- 2026-11-10: Three-body, Mandelbrot (WebGL perturbation deep zoom) and coastline-paradox pieces built + ep 4-6 scripts drafted; gallery now has Season 2. Next piece: Barnsley fern / L-systems.
