@@ -29,7 +29,7 @@ Scene.run(({ ctx, W, H, S, num, fps }) => {
   const reach = (c, v) => c.findIndex(x => x >= v) / fps;
   const t1 = reach(c1, 0.1), t2 = reach(c2, 0.1);
 
-  const gx0 = W * 0.14, gx1 = W * 0.9, gy0 = H * 0.86, gy1 = H * 0.14;
+  const gx0 = W * 0.14, gx1 = W * 0.9, gy0 = H * 0.86, gy1 = H * 0.2;
   const LMIN = -13, LMAX = 1;
   const X = tt => gx0 + (gx1 - gx0) * tt / T;
   const Y = v => gy0 - (gy0 - gy1) * (Math.log10(v) - LMIN) / (LMAX - LMIN);
@@ -83,11 +83,20 @@ Scene.run(({ ctx, W, H, S, num, fps }) => {
         // bracket: how much extra time 1000x more precision bought
         const b = Scene.smooth((t - secondAt - 4.2) / 0.6);
         if (b > 0 && t1 > 0 && t2 > 0) {
-          const y = Y(0.1) - S * 0.05;
+          const y = gy1 - S * 0.02;   // above the plot area, clear of both curves
           ctx.globalAlpha = b; ctx.strokeStyle = '#fff'; ctx.lineWidth = lw;
           ctx.beginPath(); ctx.moveTo(X(t1), y + 8); ctx.lineTo(X(t1), y); ctx.lineTo(X(t2), y); ctx.lineTo(X(t2), y + 8); ctx.stroke();
           ctx.globalAlpha = 1;
-          Scene.text(ctx, `only +${(t2 - t1).toFixed(1)} s`, (X(t1) + X(t2)) / 2, y - S * 0.03, { size: S * 0.03, weight: 700, alpha: b });
+          // dotted drop lines to where each curve reaches "a hand"
+          ctx.globalAlpha = b * 0.5; ctx.setLineDash([3, 5]);
+          for (const tt of [t1, t2]) { ctx.beginPath(); ctx.moveTo(X(tt), y + 8); ctx.lineTo(X(tt), Y(0.1)); ctx.stroke(); }
+          ctx.setLineDash([]); ctx.globalAlpha = 1;
+          const label = `only +${(t2 - t1).toFixed(1)} s`, ly = y - S * 0.035;
+          ctx.font = `700 ${Math.round(S * 0.03)}px system-ui, -apple-system, sans-serif`;
+          const lw2 = ctx.measureText(label).width + S * 0.03;
+          ctx.globalAlpha = b * 0.9; ctx.fillStyle = '#05050a';
+          ctx.fillRect((X(t1) + X(t2)) / 2 - lw2 / 2, ly - S * 0.025, lw2, S * 0.05); ctx.globalAlpha = 1;
+          Scene.text(ctx, label, (X(t1) + X(t2)) / 2, ly, { size: S * 0.03, weight: 700, alpha: b });
         }
       }
     },

@@ -112,13 +112,13 @@ const SCENES = [
     } },
   { key: 'growth', page: 'growth', voice: [['growth', 0.7], ['sensitive', 0.5]], tail: 2,
     args: c => ens({ drawEnd: f(c.at('growth') + c.d('growth') * 0.9, 2), secondAt: f(c.at('sensitive') + 0.3, 2) }) },
-  // montage: three looks, each starting just before its split
+  // montage: three looks, each starting just after its split (already in rainbow)
   ...[
     { n: 3000, a1: 120, a2: 170, glow: 0.2, trail: 0.85 },
     { n: 10000, a1: 179, a2: 179, glow: 0.08, trail: 0.75 },
     { n: 1000, a1: 90, a2: 180, glow: 0.35, trail: 0.9 },
   ].map((v, i) => ({ key: `montage${i + 1}`, page: 'ensemble', voice: i === 0 ? [['beautiful', 1.0]] : [], tail: 0, min: 7,
-    args: () => ens({ ...v, spread: 1e-5, preroll: f(Math.max(0, splitTime(v.a1, v.a2, 1e-5) - 1.2), 4) }) })),
+    args: () => ens({ ...v, spread: 1e-5, preroll: f(splitTime(v.a1, v.a2, 1e-5) + 0.6, 4) }) })),
   { key: 'site', capture: { page: 'pieces/double-pendulum/', choreo: 'scenes/site-choreo.mjs' }, voice: [['site', 1.2]], tail: 1, min: 14.5 },
   { key: 'lorenz', page: 'lorenz', voice: [['lorenz', 1.4]], tail: 8,
     args: c => ens({ nextAt: f(c.end('lorenz') + 0.8, 2) }) },
