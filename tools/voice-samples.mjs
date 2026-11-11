@@ -18,6 +18,21 @@ const JOBS = [
   ['08-alice-british-educator', 'Xb7hH8MSUJpSbSDYk0k2', 'eleven_multilingual_v2', V2],
   ['09-matilda-warm', 'XrExE9yKIg1WjnnlVkGX', 'eleven_multilingual_v2', V2],
   ['10-george-v3', 'JBFqnCBsd6RMkjVDRZzb', 'eleven_v3', { stability: 0.5 }],
+  // voice library picks (educational / documentary narrators, deliberately not the most-used ones)
+  ['11-quentin-narrator-educator', 'Aa6nEBJJMKJwJkCx8VU2', 'eleven_multilingual_v2', V2],
+  ['12-max-documentary', 'Gfpl8Yo74Is0W6cPUWWT', 'eleven_multilingual_v2', V2],
+  ['13-todd-youtube-explainer', 'g14YnDYCsy3k7XLlcKlO', 'eleven_multilingual_v2', V2],
+  ['14-luis-inquisitive-young', 'WGINef1wh4Hi6O62bfO8', 'eleven_multilingual_v2', V2],
+  ['15-adam-engineering-professor', 'QIhD5ivPGEoYZQDocuHI', 'eleven_multilingual_v2', V2],
+  ['16-russ-deep-smooth', 'HKFOb9iktHA85uKXydRT', 'eleven_multilingual_v2', V2],
+  ['17-alistair-british-factual', 'l30f87tf05uxyknGdDw6', 'eleven_multilingual_v2', V2],
+  ['18-julian-young-british', '9IzcwKmvwJcw58h3KnlH', 'eleven_multilingual_v2', V2],
+  ['19-frederick-british-wonder', 'j9jfwdrw7BRfcR43Qohk', 'eleven_multilingual_v2', V2],
+  ['20-christopher-british-gentle', 'G17SuINrv2H9FC6nvetn', 'eleven_multilingual_v2', V2],
+  ['21-hope-female-clear', 'WZlYpi1yf6zJhNWXih74', 'eleven_multilingual_v2', V2],
+  ['22-eryn-female-measured', 'RaFzMbMIfqBcIurH6XF9', 'eleven_multilingual_v2', V2],
+  ['23-stephanie-female-calm', 'oAoF4NpW2Aqxplg9HdYB', 'eleven_multilingual_v2', V2],
+  ['24-shelley-female-british', '4CrZuIW9am7gYAxgo2Af', 'eleven_multilingual_v2', V2],
 ];
 for (const [name, voice, model, s] of JOBS) {
   const f = path.join(OUT, name + '.mp3'); if (fs.existsSync(f)) continue;
