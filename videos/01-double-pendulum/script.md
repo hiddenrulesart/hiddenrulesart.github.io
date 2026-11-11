@@ -22,7 +22,7 @@ Each scene: **VISUAL** (what's on screen, all rendered from code) and **VO** (vo
 
 ### 4. Add one more arm (1:00–1:35)
 **VISUAL:** A second arm attaches to the end. Lifted high and released, the tip traces a wild, never-repeating scribble.
-**VO:** Now hang a second pendulum off the end of the first. That's it. One more rod. And the motion goes completely wild. The tip loops, flips, hesitates, and never repeats the same path twice. Same physics, same gravity, no randomness anywhere in the code. So where does this come from?
+**VO:** Now hang a second pendulum off the end of the first. That's it. One more rod. And the motion goes completely wild. The tip loops, flips, hesitates, and never follows the same path twice. Here's the strange part: nothing new was added. It's the same gravity that made one pendulum so predictable, and there isn't a single random number anywhere in my code. Every moment is completely decided by the moment before. So why does it look so random?
 
 ### 5. How to simulate it, and my first bug (1:35–2:30)
 **VISUAL:** The equations of motion appear on screen. Then a split screen: "Euler method" vs "RK4". The Euler pendulum gains energy and spins faster and faster until it's whirling like a propeller; the RK4 one behaves. An energy graph: Euler shoots upward, RK4 stays flat.

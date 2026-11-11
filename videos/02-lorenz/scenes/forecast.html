@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>14-day forecast</title></head>
+<body>
+<script src="../../../lib/scene.js"></script>
+<script>
+// Scene 7: a 14-day forecast. Day 1 is sharp, days 1-5 decent, from day 10 it's guesswork (cards blur
+// into question marks), then a "chaos wall" marks the limit. Cues: d1At, d5At, d10At, wallAt, duration.
+Scene.run(({ ctx, W, H, S, num }) => {
+  const duration = num('duration', 20), d1At = num('d1At', 2), d5At = num('d5At', 4), d10At = num('d10At', 6), wallAt = num('wallAt', 12);
+  const { smooth, text } = Scene;
+  const KIND = ['sun', 'sun', 'cloud', 'rain', 'cloud', 'sun', 'rain', 'rain', 'cloud', 'sun', 'cloud', 'rain', 'sun', 'cloud'];
+  const TEMP = [21, 23, 19, 16, 18, 22, 17, 15, 18, 20, 19, 16, 21, 18];
+  const DAYS = ['Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun', 'Mon'];
+  const N = 14, gap = S * 0.012, cw = (W * 0.92 - gap * (N - 1)) / N, ch = S * 0.36, x0 = W * 0.04, y0 = H * 0.3;
+
+  function icon(kind, x, y, r) {
+    ctx.save(); ctx.lineCap = 'round';
+    if (kind === 'sun') {
+      ctx.fillStyle = '#ffcc4d'; ctx.shadowColor = '#ffcc4d'; ctx.shadowBlur = r;
+      ctx.beginPath(); ctx.arc(x, y, r * 0.45, 0, 7); ctx.fill(); ctx.shadowBlur = 0;
+      ctx.strokeStyle = '#ffcc4d'; ctx.lineWidth = r * 0.12;
+      for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4; ctx.beginPath(); ctx.moveTo(x + Math.cos(a) * r * 0.65, y + Math.sin(a) * r * 0.65); ctx.lineTo(x + Math.cos(a) * r * 0.9, y + Math.sin(a) * r * 0.9); ctx.stroke(); }
+    } else {
+      ctx.fillStyle = '#c9cfe0';
+      for (const [dx, dy, rr] of [[-0.35, 0.1, 0.35], [0.05, -0.12, 0.45], [0.42, 0.12, 0.32]]) { ctx.beginPath(); ctx.arc(x + dx * r, y + dy * r, rr * r, 0, 7); ctx.fill(); }
+      ctx.fillRect(x - 0.35 * r, y + 0.05 * r, 0.77 * r, 0.4 * r);
+      if (kind === 'rain') { ctx.strokeStyle = '#5ab0ff'; ctx.lineWidth = r * 0.1; for (const dx of [-0.3, 0.05, 0.4]) { ctx.beginPath(); ctx.moveTo(x + dx * r, y + 0.65 * r); ctx.lineTo(x + (dx - 0.1) * r, y + 0.95 * r); ctx.stroke(); } }
+    }
+    ctx.restore();
+  }
+
+  return {
+    duration,
+    frame(t) {
+      ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1; ctx.filter = 'none';
+      ctx.fillStyle = '#05050a'; ctx.fillRect(0, 0, W, H);
+      text(ctx, '14-day forecast', W / 2, H * 0.15, { size: S * 0.05, weight: 700, alpha: smooth(t / 0.6) });
+      const fuzz = smooth((t - d10At) / 2.5);   // how far the far days have dissolved
+      for (let d = 0; d < N; d++) {
+        const appear = smooth((t - 0.3 - d * 0.08) / 0.4);
+        if (appear <= 0) continue;
+        const x = x0 + d * (cw + gap), y = y0 + (1 - appear) * S * 0.03;
+        // uncertainty grows with the day: later days blur and fade into question marks
+        const u = Math.max(0, (d - 4) / 9), blur = fuzz * u * u * S * 0.02, dissolve = fuzz * Math.max(0, (d - 8) / 5);
+        const hl1 = d === 0 ? smooth((t - d1At) / 0.4) : 0, hl5 = d < 5 ? smooth((t - d5At) / 0.4) : 0;
+        ctx.globalAlpha = appear;
+        ctx.fillStyle = `rgba(255,255,255,${0.05 + 0.05 * hl5})`;
+        ctx.strokeStyle = hl1 ? `rgba(120,255,170,${0.4 + 0.5 * hl1})` : hl5 ? `rgba(120,255,170,${0.5 * hl5})` : 'rgba(255,255,255,0.14)';
+        ctx.lineWidth = hl1 ? 3 : 1.5;
+        ctx.beginPath(); ctx.roundRect(x, y, cw, ch, S * 0.014); ctx.fill(); ctx.stroke();
+        if (blur > 0.3) ctx.filter = `blur(${blur.toFixed(1)}px)`;
+        ctx.globalAlpha = appear * (1 - dissolve);
+        text(ctx, DAYS[d], x + cw / 2, y + ch * 0.12, { size: S * 0.024, weight: 600, alpha: appear * (1 - dissolve) * 0.75 });
+        icon(KIND[d], x + cw / 2, y + ch * 0.45, cw * 0.32);
+        text(ctx, TEMP[d] + '°', x + cw / 2, y + ch * 0.8, { size: S * 0.034, weight: 600, alpha: appear * (1 - dissolve) });
+        ctx.filter = 'none';
+        if (dissolve > 0) text(ctx, '?', x + cw / 2, y + ch * 0.48, { size: S * 0.09, weight: 300, alpha: appear * dissolve * 0.7 });
+        ctx.globalAlpha = 1;
+      }
+      // labels under the strip
+      const ly = y0 + ch + S * 0.07;
+      text(ctx, 'great', x0 + cw / 2, ly, { size: S * 0.03, weight: 600, color: '#78ffaa', alpha: smooth((t - d1At) / 0.5) });
+      text(ctx, 'decent', x0 + 2.5 * (cw + gap), ly + S * 0.05, { size: S * 0.03, weight: 600, color: '#b6f5c9', alpha: smooth((t - d5At) / 0.5) });
+      text(ctx, 'guessing', x0 + 11.5 * (cw + gap), ly, { size: S * 0.03, weight: 600, color: '#ff9aa8', alpha: smooth((t - d10At) / 0.5) });
+      // the wall
+      const wa = smooth((t - wallAt) / 0.8);
+      if (wa > 0) {
+        const wx = x0 + 9.5 * (cw + gap) - gap / 2;
+        ctx.strokeStyle = `rgba(255,93,115,${0.85 * wa})`; ctx.lineWidth = S * 0.005; ctx.setLineDash([S * 0.015, S * 0.01]);
+        ctx.beginPath(); ctx.moveTo(wx, y0 - S * 0.05); ctx.lineTo(wx, y0 + ch + S * 0.02); ctx.stroke(); ctx.setLineDash([]);
+        text(ctx, 'the chaos wall', wx, y0 - S * 0.08, { size: S * 0.03, weight: 700, color: '#ff5d73', alpha: wa });
+      }
+    },
+  };
+});
+</script>
+</body></html>

@@ -222,8 +222,50 @@
   if (P.record) {
     document.body.classList.add('record');
     resize(); restart(); draw();
+    // video-only overlay: captions (cap1/cap2 from capIn to capOut), a cloud-size readout
+    // (sizeIn..sizeOut) and a title card (title at titleAt). Never shown on the website.
+    const str = (k, d) => (q.has(k) ? q.get(k) : d);
+    const O = { cap1: str('cap1', ''), cap2: str('cap2', ''), capIn: num('capIn', 0.3), capOut: num('capOut', 1e9),
+      sizeIn: num('sizeIn', 1e9), sizeOut: num('sizeOut', 1e9), title: str('title', ''), titleAt: num('titleAt', 1e9),
+      q1: str('q1', ''), q2: str('q2', ''), q3: str('q3', ''), qIn: num('qIn', 1e9), qOut: num('qOut', 1e9) };
+    const sm = x => { x = Math.max(0, Math.min(1, x)); return x * x * (3 - 2 * x); };
+    const win = (t, a, b) => sm((t - a) / 0.6) * sm((b - t) / 0.8);
+    const txt = (s, x, y, size, alpha, weight = 600, font = 'system-ui, -apple-system, sans-serif') => {
+      if (alpha <= 0 || !s) return;
+      ctx.save(); ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = alpha; ctx.fillStyle = '#fff';
+      ctx.font = `${weight} ${Math.round(size)}px ${font}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.shadowColor = 'rgba(0,0,0,0.85)'; ctx.shadowBlur = size * 0.5; ctx.fillText(s, x, y); ctx.restore();
+    };
+    const cloudSize = () => {   // 2 × RMS distance from the cloud's centre
+      let mx = 0, my = 0, mz = 0; const n = sim.n;
+      for (let i = 0; i < n; i++) { mx += sim.x[i]; my += sim.y[i]; mz += sim.z[i]; }
+      mx /= n; my /= n; mz /= n; let s = 0;
+      for (let i = 0; i < n; i++) s += (sim.x[i] - mx) ** 2 + (sim.y[i] - my) ** 2 + (sim.z[i] - mz) ** 2;
+      return 2 * Math.sqrt(s / n);
+    };
+    const fmt = v => (v >= 1 ? v.toFixed(1) : v.toFixed(Math.min(12, Math.max(1, 1 - Math.floor(Math.log10(v))))));
+    let vt = 0;
+    function overlay() {
+      const S = Math.min(W, H), a = win(vt, O.capIn, O.capOut);
+      txt(O.cap1, W / 2, H * 0.1, S * 0.05, a);
+      txt(O.cap2, W / 2, H * 0.1 + S * 0.065, S * 0.03, a * 0.75, 400);
+      const qa = win(vt, O.qIn, O.qOut);   // quote card, lower third
+      if (qa > 0) {
+        ctx.save(); ctx.globalCompositeOperation = 'source-over'; ctx.fillStyle = `rgba(5,5,10,${0.55 * qa})`; ctx.fillRect(0, H * 0.68, W, H * 0.3); ctx.restore();
+        txt(O.q1, W / 2, H * 0.74, S * 0.036, qa * 0.95, 500, 'Georgia, "Times New Roman", serif');
+        txt(O.q2, W / 2, H * 0.74 + S * 0.055, S * 0.036, qa * 0.95, 500, 'Georgia, "Times New Roman", serif');
+        txt(O.q3, W / 2, H * 0.74 + S * 0.125, S * 0.024, qa * 0.6, 400);
+      }
+      const b = win(vt, O.sizeIn, O.sizeOut);
+      if (b > 0) txt(`cloud size: ${fmt(cloudSize())}`, W / 2, H * 0.92, S * 0.03, b * 0.8, 500, 'ui-monospace, Menlo, monospace');
+      if (vt >= O.titleAt) {
+        const k = sm((vt - O.titleAt) / 0.8);
+        ctx.save(); ctx.globalCompositeOperation = 'source-over'; ctx.fillStyle = `rgba(5,5,10,${0.7 * k})`; ctx.fillRect(0, 0, W, H); ctx.restore();
+        txt(O.title, W / 2, H / 2, S * 0.1, k, 700);
+      }
+    }
     window.__recorder = { ready: true, width: W, height: H, fps: P.fps,
-      frame(type = 'image/png', quality) { frame(1 / P.fps); return canvas.toDataURL(type, quality); } };
+      frame(type = 'image/png', quality) { frame(1 / P.fps); vt += 1 / P.fps; overlay(); return canvas.toDataURL(type, quality); } };
     return;
   }
 

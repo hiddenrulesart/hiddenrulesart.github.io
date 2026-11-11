@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>1961: the rounding error</title></head>
+<body>
+<script src="../../../lib/scene.js"></script>
+<script>
+// Scene 3: Lorenz's 1961 re-run. The typed-in number (0.506) vs the stored one (0.506127),
+// then two runs of the Lorenz system that start 0.000127 apart: identical at first, then nothing alike.
+// Cues: typeAt, storedAt, coffeeAt, plotAt, plotEnd, gapAt, duration.
+Scene.run(({ ctx, W, H, S, num }) => {
+  const duration = num('duration', 40), typeAt = num('typeAt', 5), storedAt = num('storedAt', 9), coffeeAt = num('coffeeAt', 13);
+  const plotAt = num('plotAt', 16), plotEnd = num('plotEnd', 30), gapAt = num('gapAt', 29);
+  const { smooth, text } = Scene;
+  const MONO = 'ui-monospace, Menlo, "Courier New", monospace';
+
+  // two runs of the Lorenz system, starting on the attractor, the second nudged by 0.000127 in x
+  function run(dx) {
+    let x = 1, y = 1, z = 1; const h = 0.004, out = [];
+    const f = (x, y, z) => [10 * (y - x), x * (28 - z) - y, x * y - 8 / 3 * z];
+    const step = () => {
+      const k1 = f(x, y, z), k2 = f(x + h / 2 * k1[0], y + h / 2 * k1[1], z + h / 2 * k1[2]);
+      const k3 = f(x + h / 2 * k2[0], y + h / 2 * k2[1], z + h / 2 * k2[2]), k4 = f(x + h * k3[0], y + h * k3[1], z + h * k3[2]);
+      x += h / 6 * (k1[0] + 2 * k2[0] + 2 * k3[0] + k4[0]); y += h / 6 * (k1[1] + 2 * k2[1] + 2 * k3[1] + k4[1]); z += h / 6 * (k1[2] + 2 * k2[2] + 2 * k3[2] + k4[2]);
+    };
+    for (let i = 0; i < 5000; i++) step();   // settle onto the attractor (same for both runs)
+    x += dx;
+    for (let i = 0; i < 7000; i++) { step(); if (i % 2 === 0) out.push(x); }
+    return out;
+  }
+  const A = run(0), B = run(0.000127), N = A.length;   // 28 time units each
+  let split = N; for (let i = 0; i < N; i++) if (Math.abs(A[i] - B[i]) > 1.5) { split = i; break; }
+
+  const AMBER = '#ffb347', CYAN = '#5ad1ff';
+  return {
+    duration,
+    frame(t) {
+      ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
+      ctx.fillStyle = '#05050a'; ctx.fillRect(0, 0, W, H);
+      const intro = smooth(t / 0.8), up = smooth((t - plotAt + 0.6) / 1.2);   // number panel slides up when the plot arrives
+      const cy = H * (0.42 - 0.27 * up), sc = 1 - 0.3 * up;
+
+      // header
+      text(ctx, 'MIT, 1961', W / 2, cy - S * 0.2 * sc, { size: S * 0.03 * sc, weight: 600, alpha: intro * 0.55 * (1 - up), tracking: S * 0.004 });
+
+      // typed-in number
+      const typed = '0.506', k = Math.max(0, Math.min(typed.length, Math.floor((t - typeAt) / 0.18) + 1));
+      const lx = W / 2 - S * 0.42 * sc, vx = W / 2 + S * 0.02 * sc;
+      text(ctx, 'from the printout', lx, cy - S * 0.065 * sc, { size: S * 0.032 * sc, weight: 400, align: 'left', alpha: intro * 0.7 });
+      const cursorOn = t < storedAt && Math.floor(t * 2) % 2 === 0;
+      text(ctx, (t >= typeAt ? typed.slice(0, k) : '') + (cursorOn ? '▌' : ''), vx, cy - S * 0.065 * sc,
+        { size: S * 0.075 * sc, weight: 600, font: MONO, align: 'left', color: CYAN, alpha: intro });
+
+      // stored number, with the dropped digits highlighted
+      const st = smooth((t - storedAt) / 0.7);
+      if (st > 0) {
+        text(ctx, 'in the computer', lx, cy + S * 0.06 * sc, { size: S * 0.032 * sc, weight: 400, align: 'left', alpha: st * 0.7 });
+        ctx.font = `600 ${Math.round(S * 0.075 * sc)}px ${MONO}`;
+        const wHead = ctx.measureText('0.506').width;
+        text(ctx, '0.506', vx, cy + S * 0.06 * sc, { size: S * 0.075 * sc, font: MONO, align: 'left', color: AMBER, alpha: st });
+        const glow = 0.75 + 0.25 * Math.sin(t * 5);
+        text(ctx, '127', vx + wHead, cy + S * 0.06 * sc, { size: S * 0.075 * sc, font: MONO, align: 'left', color: '#ff5d73', alpha: st * glow });
+        text(ctx, '← rounded away', vx + wHead * 1.75, cy + S * 0.06 * sc, { size: S * 0.028 * sc, weight: 500, align: 'left', color: '#ff8fa0', alpha: st * (1 - up) });
+      }
+      // coffee break
+      const cf = Scene.window01(t, coffeeAt, plotAt - 0.2, 0.5, 0.5);
+      text(ctx, '☕  coffee break', W / 2, H * 0.78, { size: S * 0.04, weight: 500, alpha: cf * 0.8 });
+
+      // the two runs
+      const pa = smooth((t - plotAt) / 0.8);
+      if (pa > 0) {
+        const x0 = W * 0.08, x1 = W * 0.92, y0 = H * 0.42, y1 = H * 0.9, ym = (y0 + y1) / 2, ys = (y1 - y0) / 44;
+        const prog = Math.min(1, Math.max(0, (t - plotAt) / (plotEnd - plotAt)));
+        const m = Math.max(2, Math.floor(prog * N));
+        ctx.globalAlpha = pa * 0.25; ctx.strokeStyle = '#fff'; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(x0, ym); ctx.lineTo(x1, ym); ctx.stroke(); ctx.globalAlpha = 1;
+        text(ctx, 'simulated weather →', x1, y1 + S * 0.035, { size: S * 0.024, weight: 400, align: 'right', alpha: pa * 0.5 });
+        const trace = (arr, col, lw) => {
+          ctx.globalAlpha = pa; ctx.strokeStyle = col; ctx.lineWidth = lw; ctx.lineJoin = 'round';
+          ctx.beginPath();
+          for (let i = 0; i < m; i++) { const px = x0 + (x1 - x0) * i / (N - 1), py = ym - arr[i] * ys; i ? ctx.lineTo(px, py) : ctx.moveTo(px, py); }
+          ctx.stroke();
+          ctx.fillStyle = col; ctx.beginPath(); ctx.arc(x0 + (x1 - x0) * (m - 1) / (N - 1), ym - arr[m - 1] * ys, lw * 2.2, 0, 7); ctx.fill();
+          ctx.globalAlpha = 1;
+        };
+        ctx.globalCompositeOperation = 'lighter';
+        trace(A, AMBER, S * 0.004); trace(B, CYAN, S * 0.004);
+        ctx.globalCompositeOperation = 'source-over';
+        text(ctx, 'original run', x0, y0 - S * 0.02, { size: S * 0.026, weight: 600, align: 'left', color: AMBER, alpha: pa });
+        text(ctx, 're-run', x0 + S * 0.22, y0 - S * 0.02, { size: S * 0.026, weight: 600, align: 'left', color: CYAN, alpha: pa });
+        // where they part ways
+        if (m > split) {
+          const sx = x0 + (x1 - x0) * split / (N - 1), a = smooth((m - split) / (N * 0.04)) * pa;
+          ctx.globalAlpha = a * 0.5; ctx.setLineDash([S * 0.008, S * 0.008]); ctx.strokeStyle = '#fff';
+          ctx.beginPath(); ctx.moveTo(sx, y0 + S * 0.01); ctx.lineTo(sx, y1); ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha = 1;
+          text(ctx, 'they part ways', sx + S * 0.012, y0 + S * 0.03, { size: S * 0.024, weight: 500, align: 'left', alpha: a * 0.8 });
+        }
+        const g = smooth((t - gapAt) / 0.8);
+        text(ctx, 'a difference of 1 part in 4,000', W / 2, H * 0.965, { size: S * 0.032, weight: 600, alpha: g });
+      }
+    },
+  };
+});
+</script>
+</body></html>

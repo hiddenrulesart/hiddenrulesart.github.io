@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Three equations</title></head>
+<body>
+<script src="../../../lib/scene.js"></script>
+<script>
+// Scene 4: warm air rising (a convection roll heated from below), then Lorenz's three equations,
+// what x, y, z mean, and the three numbers. Cues: eqAt, xAt, yzAt, parAt, duration.
+Scene.run(({ ctx, W, H, S, num }) => {
+  const duration = num('duration', 25), eqAt = num('eqAt', 6), xAt = num('xAt', 9), yzAt = num('yzAt', 11), parAt = num('parAt', 13);
+  const { smooth, text } = Scene;
+  const SERIF = '"Times New Roman", Georgia, serif';
+  // particles riding a convection roll: angle around an ellipse + a little radial jitter
+  const P = Array.from({ length: 260 }, (_, i) => ({ a: (i / 260) * Math.PI * 2 * 3.7, r: 0.55 + 0.45 * ((i * 0.6180339) % 1) }));
+
+  return {
+    duration,
+    frame(t, dt) {
+      ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
+      ctx.fillStyle = '#05050a'; ctx.fillRect(0, 0, W, H);
+      const slide = smooth((t - eqAt + 0.4) / 1.2);              // cartoon moves left when the equations arrive
+      const cx = W * (0.5 - 0.24 * slide), cy = H * 0.5, bw = S * 0.62, bh = S * 0.46;
+      const x0 = cx - bw / 2, y0 = cy - bh / 2;
+
+      // the box of air: hot plate at the bottom, cold at the top
+      const g = ctx.createLinearGradient(0, y0, 0, y0 + bh);
+      g.addColorStop(0, 'rgba(70,140,255,0.16)'); g.addColorStop(1, 'rgba(255,90,40,0.2)');
+      ctx.fillStyle = g; ctx.fillRect(x0, y0, bw, bh);
+      ctx.strokeStyle = 'rgba(255,255,255,0.25)'; ctx.lineWidth = 2; ctx.strokeRect(x0, y0, bw, bh);
+      ctx.fillStyle = '#ff6a3d'; ctx.shadowColor = '#ff6a3d'; ctx.shadowBlur = S * 0.03;
+      ctx.fillRect(x0, y0 + bh - S * 0.008, bw, S * 0.012);
+      ctx.fillStyle = '#5aa0ff'; ctx.shadowColor = '#5aa0ff';
+      ctx.fillRect(x0, y0 - S * 0.004, bw, S * 0.012); ctx.shadowBlur = 0;
+      text(ctx, 'HOT', cx, y0 + bh + S * 0.04, { size: S * 0.026, color: '#ff8a5d', tracking: S * 0.004 });
+      text(ctx, 'COLD', cx, y0 - S * 0.04, { size: S * 0.026, color: '#7fb6ff', tracking: S * 0.004 });
+
+      // rising warm air, sinking cool air
+      ctx.globalCompositeOperation = 'lighter';
+      const rx = bw * 0.36, ry = bh * 0.34;
+      for (const p of P) {
+        p.a += dt * 1.1;
+        const px = cx + Math.cos(p.a) * rx * p.r, py = cy - Math.sin(p.a) * ry * p.r;
+        const warm = (py - y0) / bh;                              // 1 at the bottom (hot), 0 at the top
+        ctx.fillStyle = `hsla(${215 - 200 * warm},95%,62%,0.8)`;
+        ctx.beginPath(); ctx.arc(px, py, S * 0.0045, 0, 7); ctx.fill();
+      }
+      ctx.globalCompositeOperation = 'source-over';
+      // arrows on the roll
+      ctx.strokeStyle = 'rgba(255,255,255,0.55)'; ctx.lineWidth = S * 0.004; ctx.lineCap = 'round';
+      for (const [a0, a1] of [[-0.35, 0.35], [Math.PI - 0.35, Math.PI + 0.35]]) {
+        ctx.beginPath(); ctx.ellipse(cx, cy, rx * 1.12, ry * 1.12, 0, -a1, -a0); ctx.stroke();
+        const ea = a1, ex = cx + Math.cos(ea) * rx * 1.12, ey = cy - Math.sin(ea) * ry * 1.12;
+        const tx = -Math.sin(ea) * rx, ty = -Math.cos(ea) * ry, tl = Math.hypot(tx, ty), ux = tx / tl, uy = ty / tl, k = S * 0.02;
+        ctx.beginPath(); ctx.moveTo(ex - ux * k - uy * k * 0.6, ey - uy * k + ux * k * 0.6); ctx.lineTo(ex, ey);
+        ctx.lineTo(ex - ux * k + uy * k * 0.6, ey - uy * k - ux * k * 0.6); ctx.stroke();
+      }
+      text(ctx, 'warm air rises, cools, sinks', cx, y0 + bh + S * 0.1, { size: S * 0.028, weight: 400, alpha: 0.7 * (1 - slide * 0.4) });
+
+      // equations
+      const ex = W * 0.6, eqs = ['dx/dt = σ (y − x)', 'dy/dt = x (ρ − z) − y', 'dz/dt = x y − β z'];
+      eqs.forEach((e, i) => {
+        const a = smooth((t - eqAt - i * 0.45) / 0.7);
+        text(ctx, e, ex + (1 - a) * S * 0.03, H * 0.25 + i * S * 0.1, { size: S * 0.06, weight: 400, font: SERIF, align: 'left', alpha: a });
+      });
+      // meanings
+      const rows = [[xAt, 'x', 'how fast the air rolls'], [yzAt, 'y, z', 'temperature differences']];
+      rows.forEach(([at, sym, txt], i) => {
+        const a = smooth((t - at) / 0.6), y = H * 0.6 + i * S * 0.065;
+        text(ctx, sym, ex, y, { size: S * 0.042, weight: 400, font: SERIF, align: 'left', color: '#ffcf6a', alpha: a });
+        text(ctx, txt, ex + S * 0.14, y, { size: S * 0.032, weight: 400, align: 'left', alpha: a * 0.85 });
+      });
+      const pa = smooth((t - parAt) / 0.6);
+      text(ctx, 'σ = 10     ρ = 28     β = 8/3', ex, H * 0.6 + 2.3 * S * 0.065, { size: S * 0.044, weight: 400, font: SERIF, align: 'left', color: '#9f8cff', alpha: pa });
+    },
+  };
+});
+</script>
+</body></html>
