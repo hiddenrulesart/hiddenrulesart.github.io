@@ -7,6 +7,8 @@ site footer already links to the code. If the site moves (e.g. a `hiddenrulesart
 a custom domain), update these links and the on-screen banners together. Chapter times come from the build
 timing; re-check them if an episode is re-rendered.
 
+Thumbnails: art only, **no text**, rendered from the real pieces at 1280×720 (`node tools/thumbnails.mjs`).
+
 ## Channel
 
 **Description (about section):**
@@ -31,7 +33,7 @@ timing; re-check them if an episode is re-rendered.
 
 ## Episode 1: double pendulum
 
-**Thumbnail:** `videos/01-double-pendulum/thumbnail.jpg` (rainbow fan, "0.00001° APART")
+**Thumbnail:** `videos/01-double-pendulum/thumbnail.jpg` (the 1,000-pendulum burst from 3:30, no text)
 
 **Title:** 1,000 Pendulums, 0.00001° Apart. Then Chaos.
 Alternatives: "Why Nobody Can Predict a Double Pendulum" · "1,000 Pendulums Start Together. Seconds Later, Chaos."
@@ -65,7 +67,7 @@ Narration voice generated with ElevenLabs.
 
 ## Episode 2: Lorenz attractor
 
-**Thumbnail:** `videos/02-lorenz/thumbnail.jpg` (butterfly attractor, "ONE ROUNDING ERROR")
+**Thumbnail:** `videos/02-lorenz/thumbnail.jpg` (the butterfly attractor, no text)
 
 **Title:** The Rounding Error That Broke Weather Forecasting
 Alternatives: "A Rounding Error Discovered the Butterfly Effect" · "0.506 vs 0.506127: How Chaos Was Discovered"

@@ -17,18 +17,12 @@ while (sp.divergence() < 0.015) sp.step(1 / 60, 8);
 // art: [piece, query, frames, x-offset of the art (fraction of W), scale]; text: lines drawn on the right
 // the 1,000-pendulum ensemble exactly as in the episode (150°/150°, 0.00001° spread)
 const BURST = 'n=1000&a1=150&a2=150&spread=0.00001&trail=0.7&glow=0.35';
+// No text on thumbnails: the art alone, centred and large (channel style, decided 2026-11-11)
 const JOBS = [
-  // A: the 1,000-pendulum burst from 3:30 of the episode
-  { out: 'videos/01-double-pendulum/thumbnail.jpg',
-    art: [['double-pendulum', BURST, Math.round(21.6 * 60), -0.24, 1.08]],
-    text: [['0.00001°', 168, '#ffffff'], ['APART', 120, '#ffcf4a']] },
-  // B: before / after: the same 1,000 pendulums moving as one, then seconds later
-  { out: 'videos/01-double-pendulum/thumbnail-b.jpg',
-    art: [['double-pendulum', BURST, Math.round(3.2 * 60), -0.25, 1.05, 1], ['double-pendulum', BURST, Math.round(21.6 * 60), 0.24, 0.98]],
-    text: [], top: [['0.00001° APART', 60, '#ffffff'], ['SECONDS LATER', 60, '#ffcf4a']] },
-  { out: 'videos/02-lorenz/thumbnail.jpg',
-    art: [['lorenz', 'n=5000&spread=20&warm=12&trail=0.85&glow=0.08&rot=0&yaw=2.4&pitch=0.12&zoom=1.15', 150, -0.2, 1.05]],
-    text: [['ONE', 128, '#ffffff'], ['ROUNDING', 128, '#ffffff'], ['ERROR', 128, '#ff5d73']] },
+  { out: 'videos/01-double-pendulum/thumbnail.jpg',          // the 1,000-pendulum burst from 3:30 of the episode
+    art: [['double-pendulum', BURST.replace('glow=0.35', 'glow=0.5'), Math.round(21.6 * 60), 0, 'full']], text: [] },
+  { out: 'videos/02-lorenz/thumbnail.jpg',                   // the butterfly attractor
+    art: [['lorenz', 'n=5000&spread=20&warm=12&trail=0.85&glow=0.08&rot=0&yaw=2.4&pitch=0.12&zoom=1.2', 150, 0, 'full']], text: [] },
 ];
 
 const browser = await puppeteer.launch({ executablePath: CHROME, headless: true, protocolTimeout: 180000 });
@@ -38,7 +32,9 @@ try {
     const p = await browser.newPage();
     const arts = [];
     for (const [piece, q, frames, dx, scale, thick] of j.art) {
-      await p.goto(pathToFileURL(path.join(ROOT, 'pieces', piece, 'index.html')).href + `?record=1&w=${H}&h=${H}&${q}`);
+      // 'full': render the piece at the thumbnail's own size (sharp, nothing cropped); otherwise a square to place
+      const [rw, rh] = scale === 'full' ? [W, H] : [H, H];
+      await p.goto(pathToFileURL(path.join(ROOT, 'pieces', piece, 'index.html')).href + `?record=1&w=${rw}&h=${rh}&${q}`);
       arts.push({ src: await p.evaluate(n => { let u; for (let i = 0; i < n; i++) u = window.__recorder.frame(); return u; }, frames), dx, scale, thick });
     }
     await p.setContent('<!doctype html><body></body>');
@@ -57,7 +53,7 @@ try {
           g.globalCompositeOperation = 'source-over';
           g.filter = 'drop-shadow(0 0 2px #fff) drop-shadow(0 0 9px rgba(200,190,255,0.95))';
         }
-        g.drawImage(src, W / 2 - s / 2 + a.dx * W, H / 2 - s / 2, s, s); g.filter = 'none'; g.globalCompositeOperation = 'lighten';
+        if (a.scale === 'full') g.drawImage(src, 0, 0, W, H); else g.drawImage(src, W / 2 - s / 2 + a.dx * W, H / 2 - s / 2, s, s); g.filter = 'none'; g.globalCompositeOperation = 'lighten';
       }
       g.globalCompositeOperation = 'source-over';
       const font = size => `900 ${size}px "Helvetica Neue", Arial Black, system-ui, sans-serif`;
