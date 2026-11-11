@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 // YouTube channel art: Mandelbrot set only, no text, rendered at full resolution from pieces/mandelbrot.
-//   assets/brand/banner.png        2560x1440: a mini Mandelbrot on the set's antenna, its needle running the full width
-//   assets/brand/avatar.png        800x800: the full set, Electric palette (matches the banner)
-//   assets/brand/avatar-alt.png    800x800: the mini Mandelbrot
+//   assets/brand/banner.png        2560x1440: mini Mandelbrots along the set's antenna (needle), gold palette
+//   assets/brand/banner-magenta.png same view, magenta palette
+//   assets/brand/avatar.png        800x800: the full set, gold (matches banner.png); avatar-magenta.png, avatar-blue.png
 //   assets/brand/channel-art-preview.png  how each device crops the banner + the avatar at real sizes
 // Usage: node tools/channel-art.mjs
 import fs from 'node:fs';
@@ -17,9 +17,12 @@ const BW = 2560, BH = 1440, BAND = 423;   // YouTube: desktop shows the middle 2
 // s = half the view height. The banner's visible band is only 423 of 1440 px tall, so scale s up to frame that band.
 const band = s => s * BH / BAND;
 const JOBS = [
-  ['banner.png', BW, BH, `cx=-1.7652&cy=0&s=${band(0.024)}&pal=2&iter=4000`],
-  ['avatar.png', 800, 800, 'cx=-0.77&cy=0&s=1.32&pal=2&iter=1500'],
-  ['avatar-alt.png', 800, 800, 'cx=-1.75487&cy=0&s=0.035&pal=2&iter=3000'],
+  // the needle at the set's left tip, with several mini Mandelbrots along it
+  ['banner.png', BW, BH, `cx=-1.79&cy=0&s=${band(0.033)}&pal=0&offset=0.35&iter=4000`],          // gold
+  ['banner-magenta.png', BW, BH, `cx=-1.79&cy=0&s=${band(0.033)}&pal=0&iter=4000`],               // magenta
+  ['avatar.png', 800, 800, 'cx=-0.77&cy=0&s=1.32&pal=0&offset=0.35&iter=1500'],     // gold, matches banner.png
+  ['avatar-magenta.png', 800, 800, 'cx=-0.77&cy=0&s=1.32&pal=0&iter=1500'],          // matches banner-magenta.png
+  ['avatar-blue.png', 800, 800, 'cx=-0.77&cy=0&s=1.32&pal=2&iter=1500'],
 ];
 
 const browser = await puppeteer.launch({ executablePath: CHROME, headless: true, protocolTimeout: 1200000,
@@ -43,10 +46,11 @@ try {
   const sheet = await browser.newPage();
   await sheet.setViewport({ width: 1480, height: 700 });
   await sheet.setContent(`<!doctype html><body style="margin:0;background:#0f0f0f;color:#aaa;font:600 14px system-ui;padding:20px;display:flex;flex-direction:column;gap:10px">
-    <div>banner.png: desktop · phone · TV</div>${row('banner.png')}
-    <div>avatar.png &nbsp;·&nbsp; avatar-alt.png (real sizes: 160 / 48 / 24 px)</div>
-    <div style="display:flex;gap:16px;align-items:center">${av(urls['avatar.png'], 160)}${av(urls['avatar.png'], 48)}${av(urls['avatar.png'], 24)}
-      &nbsp;&nbsp;&nbsp; ${av(urls['avatar-alt.png'], 160)}${av(urls['avatar-alt.png'], 48)}${av(urls['avatar-alt.png'], 24)}</div></body>`);
+    <div>banner.png (gold): desktop · phone · TV</div>${row('banner.png')}
+    <div>banner-magenta.png</div>${row('banner-magenta.png')}
+    <div>avatar.png (gold) · avatar-magenta.png · avatar-blue.png (real sizes: 160 / 48 / 24 px)</div>
+    <div style="display:flex;gap:16px;align-items:center">${['avatar.png', 'avatar-magenta.png', 'avatar-blue.png'].map(a =>
+      av(urls[a], 160) + av(urls[a], 48) + av(urls[a], 24)).join('&nbsp;&nbsp;&nbsp;')}</div></body>`);
   await new Promise(r => setTimeout(r, 500));
   await sheet.screenshot({ path: path.join(OUT, 'channel-art-preview.png'), fullPage: true });
   console.log('wrote assets/brand/channel-art-preview.png');
