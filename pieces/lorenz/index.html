@@ -245,8 +245,19 @@
     };
     const fmt = v => (v >= 1 ? v.toFixed(1) : v.toFixed(Math.min(12, Math.max(1, 1 - Math.floor(Math.log10(v))))));
     let vt = 0;
+    const dotGlow = num('dotGlow', 0), tmp2 = new Float64Array(2);
     function overlay() {
       const S = Math.min(W, H), a = win(vt, O.capIn, O.capOut);
+      if (dotGlow && sim.n > 1) {   // while the cloud is still a single point, make that point glow
+        const size = cloudSize(), k = Math.max(0, 1 - size / 1.5);
+        if (k > 0) {
+          let mx = 0, my = 0, mz = 0; for (let i = 0; i < sim.n; i++) { mx += sim.x[i]; my += sim.y[i]; mz += sim.z[i]; }
+          projector()(mx / sim.n, my / sim.n, mz / sim.n, tmp2, 0);
+          const r = S * 0.05, g = ctx.createRadialGradient(tmp2[0], tmp2[1], 0, tmp2[0], tmp2[1], r);
+          g.addColorStop(0, `rgba(255,255,255,${0.95 * k})`); g.addColorStop(0.12, `rgba(200,190,255,${0.6 * k})`); g.addColorStop(1, 'rgba(120,100,255,0)');
+          ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = g; ctx.beginPath(); ctx.arc(tmp2[0], tmp2[1], r, 0, 7); ctx.fill(); ctx.restore();
+        }
+      }
       txt(O.cap1, W / 2, H * 0.1, S * 0.05, a);
       txt(O.cap2, W / 2, H * 0.1 + S * 0.065, S * 0.03, a * 0.75, 400);
       const qa = win(vt, O.qIn, O.qOut);   // quote card, lower third

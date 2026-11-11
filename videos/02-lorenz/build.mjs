@@ -90,7 +90,7 @@ const ens = (o) => Object.entries(o).flatMap(([k, v]) => ['--' + k, String(v)]);
 const LORENZ = 'pieces/lorenz/index.html';
 const SCENES = [
   { key: 'hook', path: LORENZ, voice: [['hook', 0.5], ['hook2', 0.6]], tail: 0.6 + 2.8,
-    args: c => ens({ n: 2000, spread: 1e-5, ghost: 0, rot: 0.1, yaw: 0.5, pitch: 0.2,
+    args: c => ens({ n: 2000, spread: 1e-5, ghost: 0, rot: 0.1, yaw: 0.5, pitch: 0.2, dotGlow: 1,
       warm: warmFor(c.at('hook2') + 0.3, LZ_BURST), cap1: '2,000 particles', cap2: 'all starting within 0.00001 of each other',
       capOut: f(c.at('hook2') - 0.2, 2), titleAt: f(c.end('hook2') + 0.6, 2), title: 'The Butterfly Effect' }) },
   { key: 'callback', path: 'videos/01-double-pendulum/scenes/ensemble.html', voice: [['callback', 0.6]], tail: 1,
@@ -106,7 +106,7 @@ const SCENES = [
     args: c => ens({ n: 1, ghost: 0, rot: 0.14, yaw: 0.4, pitch: 0.18, speed: 0.8, cap1: 'A strange attractor',
       capIn: f(c.at('path2') + c.d('path2') * 0.55, 2), capOut: f(c.dur - 0.6, 2) }) },
   { key: 'cloud', path: LORENZ, voice: [['cloud1', 0.6], ['cloud2', 0.4], ['cloud3', 1.2]], tail: 2.5,
-    args: c => ens({ n: 2000, spread: 1e-5, ghost: 1, rot: 0.08, yaw: 0.9, pitch: 0.25,
+    args: c => ens({ n: 2000, spread: 1e-5, ghost: 1, rot: 0.08, yaw: 0.9, pitch: 0.25, dotGlow: 1,
       warm: warmFor(c.at('cloud2') + 0.5, LZ_THREAD), cap1: '2,000 particles', cap2: 'within 0.00001 of each other',
       capIn: 0.4, capOut: f(c.at('cloud2'), 2), sizeIn: 0.8, sizeOut: f(c.at('cloud3') - 0.3, 2),
       q1: '"Does the flap of a butterfly\'s wings in Brazil', q2: 'set off a tornado in Texas?"', q3: 'Edward Lorenz, 1972',
