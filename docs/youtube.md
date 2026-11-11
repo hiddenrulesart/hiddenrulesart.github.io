@@ -1,9 +1,11 @@
 # YouTube: channel, playlists, and per-episode upload text
 
 Channel: **Hidden Rules** · handle **@HiddenRulesArt**.
-Site links below use `hiddenrulesart.github.io` (planned free GitHub organization). Until it exists,
-swap in `sirdevelop.github.io/generativeArt`. Chapter times come from the build timing; re-check them
-if an episode is re-rendered.
+Each description has exactly **one** link: the play-it-yourself page for that episode (the same link shown
+on screen in the video). No source-code link: it splits clicks and shows the personal GitHub name; the
+site footer already links to the code. If the site moves (e.g. a `hiddenrulesart` GitHub organization or
+a custom domain), update these links and the on-screen banners together. Chapter times come from the build
+timing; re-check them if an episode is re-rendered.
 
 ## Channel
 
@@ -12,7 +14,7 @@ if an episode is re-rendered.
 > hides chaos, infinite detail, or patterns nobody expected. Every video builds one of these rules as a
 > real simulation, and every simulation is on the website to play with: drag it, tweak it, save it.
 >
-> Play with everything: https://hiddenrulesart.github.io
+> Play with everything: https://sirdevelop.github.io/generativeArt/
 
 **Playlists** (create one per season as it starts, plus Start Here and Shorts):
 
@@ -36,7 +38,7 @@ Alternatives: "Why Nobody Can Predict a Double Pendulum" · "1,000 Pendulums Sta
 
 **Description:**
 ```
-Play with the pendulums yourself: https://hiddenrulesart.github.io/pendulum
+Play with the pendulums yourself: https://sirdevelop.github.io/generativeArt/pendulum
 
 1,000 double pendulums start within a hundred-thousandth of a degree of each other. A few seconds later, they have nothing in common. There is no randomness anywhere in the simulation: this is chaos, the reason a weather forecast can't see two weeks ahead.
 
@@ -54,7 +56,7 @@ Play with the pendulums yourself: https://hiddenrulesart.github.io/pendulum
 Season 1: Chaos · Episode 1
 Next episode: a rounding error in 1961 that changed weather forecasting.
 
-Narration voice generated with ElevenLabs. Simulation, visuals and code: https://github.com/sirDevelop/generativeArt
+Narration voice generated with ElevenLabs.
 ```
 
 **Tags:** chaos theory, double pendulum, butterfly effect, physics simulation, generative art, Runge-Kutta, numerical methods, sensitive dependence on initial conditions
@@ -70,7 +72,7 @@ Alternatives: "A Rounding Error Discovered the Butterfly Effect" · "0.506 vs 0.
 
 **Description:**
 ```
-Fly around the attractor yourself: https://hiddenrulesart.github.io/lorenz
+Fly around the attractor yourself: https://sirdevelop.github.io/generativeArt/lorenz
 
 In 1961, the meteorologist Edward Lorenz re-ran a weather simulation from a printout that had rounded 0.506127 to 0.506. The forecast came out completely different. Two years later he reduced rising warm air to three equations, and found a shape that never repeats: the Lorenz attractor, the original butterfly effect.
 
@@ -92,7 +94,7 @@ Sources
 Season 1: Chaos · Episode 2
 Previous: 1,000 pendulums (episode 1). Next: one line of algebra about rabbits.
 
-Narration voice generated with ElevenLabs. Simulation, visuals and code: https://github.com/sirDevelop/generativeArt
+Narration voice generated with ElevenLabs.
 ```
 
 **Tags:** Lorenz attractor, butterfly effect, chaos theory, Edward Lorenz, weather forecasting, strange attractor, physics simulation, generative art
