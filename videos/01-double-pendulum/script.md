@@ -47,7 +47,7 @@ Each scene: **VISUAL** (what's on screen, all rendered from code) and **VO** (vo
 **VO:** (music only, or one line:) And honestly, it's also just beautiful.
 
 ### 10. Website + cliffhanger (4:50–5:15)
-**VISUAL:** Screen capture of the website being played with: dragging, sliders. URL on screen: **sirdevelop.github.io/generativeArt/pendulum** (also first line of the description). Then fade to a dark, slowly forming Lorenz attractor silhouette.
+**VISUAL:** Screen capture of the website being played with: dragging, sliders. URL on screen: **hiddenrulesart.github.io/pendulum** (also first line of the description). Then fade to a dark, slowly forming Lorenz attractor silhouette.
 **VO:** You can play with this yourself. Link's in the description: drag the pendulums, change how close they start, and make your own. And this isn't just about pendulums. In 1961, a meteorologist named Edward Lorenz rounded one number in a weather simulation, and accidentally discovered that weather works exactly like this. What he saw next had a shape. That's the next video.
 
 ---

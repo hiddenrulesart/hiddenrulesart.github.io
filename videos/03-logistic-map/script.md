@@ -67,7 +67,7 @@ one way and two point five the other, and you get the same picture back. Forever
 more than a billion times, and the rabbits still haven't run out of copies.
 
 ### 8. Website (4:35–4:55)
-**VISUAL:** Website capture: dragging around, scroll/pinch zoom, the mini-map, hover inset, "Dive into infinity" button. URL on screen: **sirdevelop.github.io/generativeArt/rabbits** (also first line of the description).
+**VISUAL:** Website capture: dragging around, scroll/pinch zoom, the mini-map, hover inset, "Dive into infinity" button. URL on screen: **hiddenrulesart.github.io/rabbits** (also first line of the description).
 **VO:** You can explore it yourself, link in the description. Hover over any column to see what the
 rabbits are doing, and zoom in as far as you like.
 

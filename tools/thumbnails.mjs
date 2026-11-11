@@ -15,12 +15,19 @@ const sp = globalThis.DoublePendulumSim.createSim({ n: 200 }); sp.reset(120, 170
 while (sp.divergence() < 0.015) sp.step(1 / 60, 8);
 
 // art: [piece, query, frames, x-offset of the art (fraction of W), scale]; text: lines drawn on the right
+// the 1,000-pendulum ensemble exactly as in the episode (150°/150°, 0.00001° spread)
+const BURST = 'n=1000&a1=150&a2=150&spread=0.00001&trail=0.7&glow=0.35';
 const JOBS = [
+  // A: the 1,000-pendulum burst from 3:30 of the episode
   { out: 'videos/01-double-pendulum/thumbnail.jpg',
-    art: ['double-pendulum', 'n=3000&a1=120&a2=170&spread=0.00001&trail=0.8&glow=0.18', Math.round((sp.time + 4.5) * 60), -0.12, 1.45],
+    art: [['double-pendulum', BURST, Math.round(21.6 * 60), -0.24, 1.08]],
     text: [['0.00001°', 168, '#ffffff'], ['APART', 120, '#ffcf4a']] },
+  // B: before / after: the same 1,000 pendulums moving as one, then seconds later
+  { out: 'videos/01-double-pendulum/thumbnail-b.jpg',
+    art: [['double-pendulum', BURST, Math.round(3.2 * 60), -0.25, 1.05, 1], ['double-pendulum', BURST, Math.round(21.6 * 60), 0.24, 0.98]],
+    text: [], top: [['0.00001° APART', 60, '#ffffff'], ['SECONDS LATER', 60, '#ffcf4a']] },
   { out: 'videos/02-lorenz/thumbnail.jpg',
-    art: ['lorenz', 'n=5000&spread=20&warm=12&trail=0.85&glow=0.08&rot=0&yaw=2.4&pitch=0.12&zoom=1.15', 150, -0.2, 1.05],
+    art: [['lorenz', 'n=5000&spread=20&warm=12&trail=0.85&glow=0.08&rot=0&yaw=2.4&pitch=0.12&zoom=1.15', 150, -0.2, 1.05]],
     text: [['ONE', 128, '#ffffff'], ['ROUNDING', 128, '#ffffff'], ['ERROR', 128, '#ff5d73']] },
 ];
 
@@ -28,28 +35,49 @@ const browser = await puppeteer.launch({ executablePath: CHROME, headless: true,
 try {
   const done = [];
   for (const j of JOBS) {
-    const [piece, q, frames, dx, scale] = j.art;
     const p = await browser.newPage();
-    await p.goto(pathToFileURL(path.join(ROOT, 'pieces', piece, 'index.html')).href + `?record=1&w=${H}&h=${H}&${q}`);
-    const art = await p.evaluate(n => { let u; for (let i = 0; i < n; i++) u = window.__recorder.frame(); return u; }, frames);
+    const arts = [];
+    for (const [piece, q, frames, dx, scale, thick] of j.art) {
+      await p.goto(pathToFileURL(path.join(ROOT, 'pieces', piece, 'index.html')).href + `?record=1&w=${H}&h=${H}&${q}`);
+      arts.push({ src: await p.evaluate(n => { let u; for (let i = 0; i < n; i++) u = window.__recorder.frame(); return u; }, frames), dx, scale, thick });
+    }
     await p.setContent('<!doctype html><body></body>');
-    const url = await p.evaluate(async ({ art, W, H, dx, scale, text }) => {
+    const url = await p.evaluate(async ({ arts, W, H, text, top }) => {
       const c = document.createElement('canvas'); c.width = W; c.height = H; const g = c.getContext('2d');
       g.fillStyle = '#05050a'; g.fillRect(0, 0, W, H);
-      const im = new Image(); im.src = art; await im.decode();
-      const s = H * scale; g.drawImage(im, W / 2 - s / 2 + dx * W, H / 2 - s / 2, s, s);
-      // darken the right side so the text always reads
-      const gr = g.createLinearGradient(W * 0.4, 0, W, 0); gr.addColorStop(0, 'rgba(5,5,10,0)'); gr.addColorStop(0.45, 'rgba(5,5,10,0.75)');
-      g.fillStyle = gr; g.fillRect(0, 0, W, H);
-      const total = text.reduce((a, [, size]) => a + size * 0.95, 0);
-      let y = H / 2 - total / 2;
-      for (const [s, size, color] of text) {
-        g.font = `900 ${size}px "Helvetica Neue", Arial Black, system-ui, sans-serif`; g.textAlign = 'right'; g.textBaseline = 'top';
-        g.shadowColor = 'rgba(0,0,0,0.9)'; g.shadowBlur = 24; g.fillStyle = color;
-        g.fillText(s, W - 56, y); y += size * 0.95;
+      g.globalCompositeOperation = 'lighten';   // max, not sum: overlapping dark backgrounds stay dark
+      for (const a of arts) {
+        const im = new Image(); im.src = a.src; await im.decode(); const s = H * a.scale;
+        let src = im;
+        if (a.thick) {   // thin white arms: make the dark background transparent, then glow only the lines
+          const t = document.createElement('canvas'); t.width = im.width; t.height = im.height; const tg = t.getContext('2d');
+          tg.drawImage(im, 0, 0); const d = tg.getImageData(0, 0, t.width, t.height), px = d.data;
+          for (let i = 0; i < px.length; i += 4) { const m = Math.max(px[i], px[i + 1], px[i + 2]); px[i + 3] = m < 14 ? 0 : m; }
+          tg.putImageData(d, 0, 0); src = t;
+          g.globalCompositeOperation = 'source-over';
+          g.filter = 'drop-shadow(0 0 2px #fff) drop-shadow(0 0 9px rgba(200,190,255,0.95))';
+        }
+        g.drawImage(src, W / 2 - s / 2 + a.dx * W, H / 2 - s / 2, s, s); g.filter = 'none'; g.globalCompositeOperation = 'lighten';
+      }
+      g.globalCompositeOperation = 'source-over';
+      const font = size => `900 ${size}px "Helvetica Neue", Arial Black, system-ui, sans-serif`;
+      if (text.length) {   // right-hand block: darken behind it so it always reads
+        const gr = g.createLinearGradient(W * 0.4, 0, W, 0); gr.addColorStop(0, 'rgba(5,5,10,0)'); gr.addColorStop(0.45, 'rgba(5,5,10,0.75)');
+        g.fillStyle = gr; g.fillRect(0, 0, W, H);
+        const total = text.reduce((a, [, size]) => a + size * 0.95, 0); let y = H / 2 - total / 2;
+        for (const [s, size, color] of text) {
+          g.font = font(size); g.textAlign = 'right'; g.textBaseline = 'top'; g.shadowColor = 'rgba(0,0,0,0.9)'; g.shadowBlur = 24; g.fillStyle = color;
+          g.fillText(s, W - 56, y); y += size * 0.95;
+        }
+      }
+      if (top) {   // captions over the left and right halves, at the top
+        top.forEach(([s, size, color], i) => {
+          g.font = font(size); g.textAlign = 'center'; g.textBaseline = 'top'; g.shadowColor = 'rgba(0,0,0,0.95)'; g.shadowBlur = 24; g.fillStyle = color;
+          g.fillText(s, i === 0 ? W * 0.25 : W * 0.74, 34);
+        });
       }
       return c.toDataURL('image/jpeg', 0.92);
-    }, { art, W, H, dx, scale, text: j.text });
+    }, { arts, W, H, text: j.text, top: j.top || null });
     fs.writeFileSync(path.join(ROOT, j.out), Buffer.from(url.split(',')[1], 'base64'));
     done.push(url); await p.close();
     console.log('wrote', j.out);

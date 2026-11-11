@@ -73,7 +73,7 @@ millimetres, the scale bar ticking down, the coast just as crinkled at every ste
 coast stops being a fractal somewhere around grains of sand. Mine never stops.
 
 ### 8. Website (4:45–5:00)
-**VISUAL:** Website capture: presets, the ruler slider, Sweep, the plot updating, pinch-zoom on a phone. URL on screen: **sirdevelop.github.io/generativeArt/coastline** (also first line of the description).
+**VISUAL:** Website capture: presets, the ruler slider, Sweep, the plot updating, pinch-zoom on a phone. URL on screen: **hiddenrulesart.github.io/coastline** (also first line of the description).
 **VO:** Measure it yourself, link in the description. Pick a ruler, make your own island, and see if
 you can get the dimension right.
 

@@ -1,6 +1,6 @@
 # Hidden Rules
 
-Live: https://sirdevelop.github.io/generativeArt/
+Live: https://hiddenrulesart.github.io/
 
 Interactive generative-art pieces that double as the source for YouTube videos.
 Each piece runs in the browser (play with it) and has a record mode that renders

@@ -75,7 +75,7 @@ knots. Chaos isn't everywhere. It switches on.
 
 ### 9. Showcase + website (4:35–5:00)
 **VISUAL:** Montage: 5,000-particle storm cloud, single-path wing close-ups, slow rotation. Then a website
-capture: dragging to rotate, presets, URL on screen: **sirdevelop.github.io/generativeArt/lorenz** (also first line of the description).
+capture: dragging to rotate, presets, URL on screen: **hiddenrulesart.github.io/lorenz** (also first line of the description).
 **VO:** You can fly around the attractor yourself, link in the description. Turn the dials and find your own
 butterfly.
 

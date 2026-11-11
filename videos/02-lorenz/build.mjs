@@ -167,12 +167,12 @@ if (args.includes('--audio-only')) {
 
 // ---- 3. render (cached)
 const only = arg('--only', '')?.split(',').filter(Boolean);
-const deps = ['lib/scene.js', 'lib/ui.js', 'lib/ui.css', 'pieces/lorenz/sim.js', 'tools/record.mjs', 'tools/capture-page.mjs'];
+const deps = ['lib/scene.js', 'pieces/lorenz/sim.js', 'tools/record.mjs', 'tools/capture-page.mjs'];
 const read = p => fs.readFileSync(path.join(ROOT, p), 'utf8');
 console.log(`3/4 Render (${W}x${H})`);
 for (const s of SCENES) {
   const page = s.path || path.join(REL, 'scenes', s.page + '.html');
-  const src = s.capture ? [s.capture.page + 'index.html', path.join(REL, s.capture.choreo)] : [page];
+  const src = s.capture ? [s.capture.page + 'index.html', path.join(REL, s.capture.choreo), 'lib/ui.js', 'lib/ui.css'] : [page];
   if (s.path?.includes('double-pendulum')) src.push('pieces/double-pendulum/sim.js', 'pieces/double-pendulum/render.js');
   const key = sha(JSON.stringify([src.map(read), deps.map(read), s.extra, s.cueJson, f(s.dur), W, H, FPS]));
   s.file = path.join(OUT, 'clips', `${s.key}-${W}-${key}.mp4`);

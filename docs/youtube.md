@@ -14,7 +14,7 @@ timing; re-check them if an episode is re-rendered.
 > hides chaos, infinite detail, or patterns nobody expected. Every video builds one of these rules as a
 > real simulation, and every simulation is on the website to play with: drag it, tweak it, save it.
 >
-> Play with everything: https://sirdevelop.github.io/generativeArt/
+> Play with everything: https://hiddenrulesart.github.io/
 
 **Playlists** (create one per season as it starts, plus Start Here and Shorts):
 
@@ -38,7 +38,7 @@ Alternatives: "Why Nobody Can Predict a Double Pendulum" · "1,000 Pendulums Sta
 
 **Description:**
 ```
-Play with the pendulums yourself: https://sirdevelop.github.io/generativeArt/pendulum
+Play with the pendulums yourself: https://hiddenrulesart.github.io/pendulum
 
 1,000 double pendulums start within a hundred-thousandth of a degree of each other. A few seconds later, they have nothing in common. There is no randomness anywhere in the simulation: this is chaos, the reason a weather forecast can't see two weeks ahead.
 
@@ -72,7 +72,7 @@ Alternatives: "A Rounding Error Discovered the Butterfly Effect" · "0.506 vs 0.
 
 **Description:**
 ```
-Fly around the attractor yourself: https://sirdevelop.github.io/generativeArt/lorenz
+Fly around the attractor yourself: https://hiddenrulesart.github.io/lorenz
 
 In 1961, the meteorologist Edward Lorenz re-ran a weather simulation from a printout that had rounded 0.506127 to 0.506. The forecast came out completely different. Two years later he reduced rising warm air to three equations, and found a shape that never repeats: the Lorenz attractor, the original butterfly effect.
 
