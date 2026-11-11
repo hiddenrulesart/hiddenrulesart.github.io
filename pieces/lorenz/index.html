@@ -165,6 +165,11 @@
     // particle layer: fade, then this frame's motion as short segments
     lctx.globalCompositeOperation = 'source-over';
     lctx.fillStyle = `rgba(0,0,0,${1 - P.trail})`; lctx.fillRect(0, 0, W, H);
+    // 8-bit fades never quite reach black (a pixel at 4/255 faded by 10% rounds back to 4), so a faint
+    // residue of everything ever drawn builds up. Colour-burn against near-white subtracts ~1-2/255 from dim
+    // pixels and leaves bright ones untouched, letting the residue decay to true black.
+    lctx.globalCompositeOperation = 'color-burn'; lctx.fillStyle = 'rgb(252,252,252)'; lctx.fillRect(0, 0, W, H);
+    lctx.globalCompositeOperation = 'source-over';
     lctx.globalCompositeOperation = 'lighter'; lctx.lineWidth = lw * 2.4; lctx.lineCap = 'round';
     const n = sim.n;
     const seg = i => { proj(px[i], py[i], pz[i], tmp, 0); proj(sim.x[i], sim.y[i], sim.z[i], tmp, 2);

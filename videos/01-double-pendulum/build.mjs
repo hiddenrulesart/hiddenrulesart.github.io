@@ -159,13 +159,16 @@ for (const s of SCENES) {
   s.file = path.join(OUT, 'clips', `${s.key}-${W}-${key}.mp4`);
   if (fs.existsSync(s.file) && !(only && only.includes(s.key))) { console.log(`  ${s.key}: cached`); continue; }
   console.log(`  ${s.key}: rendering ${f(s.dur, 1)}s`);
+  // render to a temp file and rename only when complete, so a crashed render is never mistaken for a cached clip
+  const tmp = s.file.replace(/\.mp4$/, '.partial.mp4');
   const cmd = s.capture
     ? [path.join(ROOT, 'tools/capture-page.mjs'), s.capture.page, path.join(HERE, s.capture.choreo),
-       '--w', 1920, '--h', 1080, '--scale', W / 1920, '--fps', FPS, '--seconds', f(s.dur), '--out', s.file]
+       '--w', 1920, '--h', 1080, '--scale', W / 1920, '--fps', FPS, '--seconds', f(s.dur), '--out', tmp]
     : [path.join(ROOT, 'tools/record.mjs'), `${REL}/scenes/${s.page}.html`,
-       '--w', W, '--h', H, '--fps', FPS, '--seconds', f(s.dur), '--duration', f(s.dur), '--out', s.file, ...s.extra];
+       '--w', W, '--h', H, '--fps', FPS, '--seconds', f(s.dur), '--duration', f(s.dur), '--out', tmp, ...s.extra];
   const r = spawnSync('node', cmd.map(String), { cwd: ROOT, stdio: ['ignore', 'ignore', 'inherit'] });
-  if (r.status !== 0 || !fs.existsSync(s.file)) throw new Error(`render ${s.key} failed`);
+  if (r.status !== 0 || !fs.existsSync(tmp)) { fs.rmSync(tmp, { force: true }); throw new Error(`render ${s.key} failed`); }
+  fs.renameSync(tmp, s.file);
 }
 
 // ---- 4. assemble

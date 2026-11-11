@@ -1,5 +1,5 @@
 // Scripted mouse for the "turn the dial" scene: drag ρ from 28 down to 14 (chaos dies, the cloud
-// settles onto two calm points), back up to 28 (the butterfly returns), then rotate the view while
+// settles onto two calm points), back up to 40 (the butterfly returns), then rotate the view while
 // the "play with it yourself" banner is up. Cue times come from build.mjs via SCENE_CUES.
 export default async function ({ page, W, H, seconds }) {
   const cues = JSON.parse(process.env.SCENE_CUES || '{}');
@@ -20,8 +20,10 @@ export default async function ({ page, W, H, seconds }) {
     [downAt + 3.0, { x: thumb(14).x - W * 0.08, y: thumb(14).y + H * 0.12 }, false],
     [upAt - 0.9, thumb(14), false],
     [upAt - 0.6, thumb(14), true],
-    [upAt + 0.8, thumb(28), true],        // and back up
-    [upAt + 1.1, thumb(28), false],
+    // back up past 28 to 40: at 28 the calm points repel so weakly that the collapsed particles take ~15 s
+    // to spread out again; at 40 the butterfly is back within ~5 s, in time for the narration
+    [upAt + 0.9, thumb(40), true],
+    [upAt + 1.2, thumb(40), false],
     [siteAt + 0.4, { x: stage.x + W * 0.08, y: stage.y }, false],
     [siteAt + 0.7, { x: stage.x + W * 0.08, y: stage.y }, true],
     [siteAt + 3.2, { x: stage.x - W * 0.1, y: stage.y + H * 0.05 }, true],   // drag to rotate

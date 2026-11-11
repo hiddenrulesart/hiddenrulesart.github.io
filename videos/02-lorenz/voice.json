@@ -16,7 +16,8 @@
     {"id": "cloud3", "text": "In 1972, Lorenz gave a talk with a title that became famous: does the flap of a butterfly's wings in Brazil set off a tornado in Texas?"},
     {"id": "forecast", "text": "That's why your weather app is great for tomorrow, decent for five days, and basically guessing after ten. It's not because meteorologists are bad, or computers are slow. Even a near-perfect model, with near-perfect data, hits this wall. The atmosphere is chaotic."},
     {"id": "dial1", "text": "And here's the surprising part. Turn down rho. Think of it as how hard the air is being heated. And below about twenty-four, the chaos just dies. Everything settles into two calm points."},
-    {"id": "dial2", "text": "Turn it back up, and the butterfly returns. Chaos isn't everywhere. It switches on."},
+    {"id": "dial2", "text": "Now turn it back up."},
+    {"id": "dial3", "text": "And the butterfly returns. Chaos isn't everywhere. It switches on."},
     {"id": "site", "text": "You can fly around the attractor yourself. The link is in the description. Turn the dials, and find your own butterfly."},
     {"id": "next", "text": "But how does chaos switch on? It turns out, three equations aren't needed. Just one line of algebra, about rabbits. And inside it is a number that shows up all over nature. That's the next video."}
   ]

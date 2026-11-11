@@ -114,9 +114,11 @@ const SCENES = [
   { key: 'forecast', page: 'forecast', voice: [['forecast', 0.7]], tail: 1.6,
     args: c => ens({ d1At: f(c.at('forecast') + c.d('forecast') * 0.1, 2), d5At: f(c.at('forecast') + c.d('forecast') * 0.19, 2),
       d10At: f(c.at('forecast') + c.d('forecast') * 0.3, 2), wallAt: f(c.at('forecast') + c.d('forecast') * 0.72, 2) }) },
-  { key: 'dial', capture: { page: 'pieces/lorenz/', query: '?n=2000&spread=20&glow=0.3', choreo: 'scenes/dial-choreo.mjs' },
-    voice: [['dial1', 0.8], ['dial2', 1.2], ['site', 1.0]], tail: 1.5,
-    cues: c => ({ downAt: c.at('dial1') + c.d('dial1') * 0.45, upAt: c.at('dial2'), siteAt: c.at('site') - 0.3 }) },
+  { key: 'dial', capture: { page: 'pieces/lorenz/', query: '?n=2000&spread=1&glow=0.3&zoom=0.88', choreo: 'scenes/dial-choreo.mjs' },
+    // the particles need ~5 s to unwind from the calm points once rho is back up, so the dial turns on
+    // "Now turn it back up." and "And the butterfly returns" waits until they have
+    voice: [['dial1', 0.8], ['dial2', 1.0], ['dial3', 4.6], ['site', 1.0]], tail: 1.5,
+    cues: c => ({ downAt: c.at('dial1') + c.d('dial1') * 0.2, upAt: c.at('dial2') + 0.1, siteAt: c.at('site') - 0.3 }) },
   { key: 'storm', path: LORENZ, voice: [], tail: 0, min: 7,
     args: () => ens({ n: 5000, spread: 20, warm: 12, trail: 0.85, glow: 0.11, rot: 0.2, yaw: 2.2, pitch: 0.35, zoom: 1.1 }) },
   { key: 'next', page: 'next', voice: [['next', 0.8]], tail: 4.5,
@@ -176,13 +178,16 @@ for (const s of SCENES) {
   s.file = path.join(OUT, 'clips', `${s.key}-${W}-${key}.mp4`);
   if (fs.existsSync(s.file) && !(only && only.includes(s.key))) { console.log(`  ${s.key}: cached`); continue; }
   console.log(`  ${s.key}: rendering ${f(s.dur, 1)}s`);
+  // render to a temp file and rename only when complete, so a crashed render is never mistaken for a cached clip
+  const tmp = s.file.replace(/\.mp4$/, '.partial.mp4');
   const cmd = s.capture
     ? [path.join(ROOT, 'tools/capture-page.mjs'), s.capture.page + (s.capture.query || ''), path.join(HERE, s.capture.choreo),
-       '--w', 1920, '--h', 1080, '--scale', W / 1920, '--fps', FPS, '--seconds', f(s.dur), '--out', s.file]
+       '--w', 1920, '--h', 1080, '--scale', W / 1920, '--fps', FPS, '--seconds', f(s.dur), '--out', tmp]
     : [path.join(ROOT, 'tools/record.mjs'), page,
-       '--w', W, '--h', H, '--fps', FPS, '--seconds', f(s.dur), '--duration', f(s.dur), '--out', s.file, ...s.extra];
+       '--w', W, '--h', H, '--fps', FPS, '--seconds', f(s.dur), '--duration', f(s.dur), '--out', tmp, ...s.extra];
   const r = spawnSync('node', cmd.map(String), { cwd: ROOT, stdio: ['ignore', 'ignore', 'inherit'], env: { ...process.env, SCENE_CUES: s.cueJson || '{}' } });
-  if (r.status !== 0 || !fs.existsSync(s.file)) throw new Error(`render ${s.key} failed`);
+  if (r.status !== 0 || !fs.existsSync(tmp)) { fs.rmSync(tmp, { force: true }); throw new Error(`render ${s.key} failed`); }
+  fs.renameSync(tmp, s.file);
 }
 
 // ---- 4. assemble
