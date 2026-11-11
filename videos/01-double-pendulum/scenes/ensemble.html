@@ -12,7 +12,7 @@
 Scene.run(({ ctx, W, H, S, num, str, fps }) => {
   const n = num('n', 1000), spread = num('spread', 1e-5);
   const textOut = num('textOut', 6.5), titleAt = num('titleAt', 1e9), duration = num('duration', 27);
-  const cap1 = str('cap1', ''), cap2 = str('cap2', ''), title = str('title', 'I programmed chaos.');
+  const cap1 = str('cap1', ''), cap2 = str('cap2', ''), title = str('title', 'Chaos.');
   const hold = num('hold', 0), trail = num('trail', 0.6), glow = num('glow', 0.35), clock = num('clock', 0);
   const sim = DoublePendulumSim.createSim({ n });
   sim.reset(num('a1', 150), num('a2', 150), spread);

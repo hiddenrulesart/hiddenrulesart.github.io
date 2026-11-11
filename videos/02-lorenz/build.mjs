@@ -92,7 +92,7 @@ const SCENES = [
   { key: 'hook', path: LORENZ, voice: [['hook', 0.5], ['hook2', 0.6]], tail: 0.6 + 2.8,
     args: c => ens({ n: 2000, spread: 1e-5, ghost: 0, rot: 0.1, yaw: 0.5, pitch: 0.2,
       warm: warmFor(c.at('hook2') + 0.3, LZ_BURST), cap1: '2,000 particles', cap2: 'all starting within 0.00001 of each other',
-      capOut: f(c.at('hook2') - 0.2, 2), titleAt: f(c.end('hook2') + 0.6, 2), title: 'I programmed the butterfly effect.' }) },
+      capOut: f(c.at('hook2') - 0.2, 2), titleAt: f(c.end('hook2') + 0.6, 2), title: 'The Butterfly Effect' }) },
   { key: 'callback', path: 'videos/01-double-pendulum/scenes/ensemble.html', voice: [['callback', 0.6]], tail: 1,
     args: c => ens({ n: 1000, a1: 150, a2: 150, spread: 1e-5, preroll: f(splitTime(150, 150, 1e-5) - 1.5, 4), cap1: 'Episode 1',
       cap2: '1,000 pendulums', textOut: f(c.d('callback') * 0.45, 2), trail: 0.7 }) },

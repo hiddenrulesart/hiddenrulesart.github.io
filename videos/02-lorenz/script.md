@@ -8,6 +8,8 @@ Interactive piece: `pieces/lorenz/` (live on the site).
 Alternative titles: "The butterfly effect, simulated" · "This shape broke weather forecasting" ·
 "I programmed the butterfly effect".
 
+> **Narration source of truth:** `voice.json` in this folder (third person, as recorded). VO lines below are the earlier draft wording.
+
 ---
 
 ### 1. Hook (0:00–0:10)

@@ -5,6 +5,8 @@ Status: DRAFT v1. Scenes 1–3 (first minute) are built: `scenes/`, narration in
 
 Each scene: **VISUAL** (what's on screen, all rendered from code) and **VO** (voiceover).
 
+> **Narration source of truth:** `voice.json` in this folder (third person, as recorded). VO lines below are the earlier draft wording.
+
 ---
 
 ### 1. Hook (0:00–0:08)
