@@ -1,4 +1,4 @@
-# Generative Art
+# Hidden Rules
 
 Live: https://sirdevelop.github.io/generativeArt/
 
