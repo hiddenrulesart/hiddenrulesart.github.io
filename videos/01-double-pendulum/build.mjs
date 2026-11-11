@@ -6,7 +6,8 @@
 //      clips are cached by a hash of their source files + parameters, so edits only re-render what changed.
 //   4. Assemble: crossfade all scenes, lay narration at the computed offsets, normalize loudness.
 //
-// Usage: node videos/01-double-pendulum/build.mjs [--4k] [--placeholder] [--only a,b] [--voice <id>] [--model <id>]
+// Usage: node videos/01-double-pendulum/build.mjs [--4k] [--placeholder] [--only a,b] [--voice <id>] [--model <id>] [--scenes N] [--name tag]
+//   --scenes N     build only the first N scenes (a quick preview); --name adds a tag to the output file
 //   --placeholder  macOS `say` instead of ElevenLabs (free, for timing tests)
 // Needs ELEVENLABS_API_KEY in <repo>/.env (git-ignored) or the environment.
 import fs from 'node:fs';
@@ -34,7 +35,7 @@ if (fs.existsSync(envFile)) for (const line of fs.readFileSync(envFile, 'utf8').
   const m = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*?)\s*$/); if (m && !process.env[m[1]]) process.env[m[1]] = m[2].replace(/^['"]|['"]$/g, '');
 }
 const KEY = process.env.ELEVENLABS_API_KEY;
-const VOICE = arg('--voice', process.env.ELEVENLABS_VOICE_ID || 'nPczCjzI2devNBz1zQrb'); // "Brian": deep, calm narrator
+const VOICE = arg('--voice', process.env.ELEVENLABS_VOICE_ID || 'Aa6nEBJJMKJwJkCx8VU2'); // "Quentin": deep, calm narrator/educator (was Brian nPczCjzI2devNBz1zQrb)
 const MODEL = arg('--model', process.env.ELEVENLABS_MODEL || 'eleven_multilingual_v2');
 const SETTINGS = { stability: 0.45, similarity_boost: 0.8, style: 0.15, use_speaker_boost: true };
 const sha = s => crypto.createHash('sha1').update(s).digest('hex').slice(0, 10);
@@ -68,12 +69,6 @@ async function tts(seg, prev, next) {
 }
 const probeDur = f => +execFileSync('ffprobe', ['-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', f]).toString().trim();
 
-console.log('1/4 Narration');
-const audio = {};
-for (let i = 0; i < segments.length; i++) {
-  const file = await tts(segments[i], segments[i - 1], segments[i + 1]);
-  audio[segments[i].id] = { file, d: probeDur(file) };
-}
 
 // ---- helpers for scene cues
 await import(path.join(ROOT, 'pieces/double-pendulum/sim.js'));
@@ -124,6 +119,18 @@ const SCENES = [
     args: c => ens({ nextAt: f(c.end('lorenz') + 0.8, 2) }) },
 ];
 
+const NS = +arg('--scenes', 0);
+if (NS) SCENES.splice(NS);
+const needed = new Set(SCENES.flatMap(sc => sc.voice.map(v => v[0])));
+
+console.log('1/4 Narration');
+const audio = {};
+for (let i = 0; i < segments.length; i++) {
+  if (!needed.has(segments[i].id)) continue;
+  const file = await tts(segments[i], segments[i - 1], segments[i + 1]);
+  audio[segments[i].id] = { file, d: probeDur(file) };
+}
+
 // timing
 let clock = 0;
 const placed = [];   // [file, absoluteStart]
@@ -163,7 +170,7 @@ for (const s of SCENES) {
 
 // ---- 4. assemble
 console.log('4/4 Assemble');
-const final = path.join(OUT, `episode01-${K4 ? '4k' : '1080p'}.mp4`);
+const final = path.join(OUT, `episode01-${K4 ? '4k' : '1080p'}${arg('--name', '') ? '-' + arg('--name') : ''}${NS ? '-preview' : ''}.mp4`);
 const inputs = [...SCENES.map(s => s.file), ...placed.map(p => p[0])];
 let fc = '', prev = '[0:v]';
 for (let i = 1; i < SCENES.length; i++) {
