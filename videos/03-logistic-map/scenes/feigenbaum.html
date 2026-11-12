@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Feigenbaum's constant</title></head>
+<body>
+<script src="../../../lib/scene.js"></script>
+<script src="bif.js"></script>
+<script>
+// Scene 6: Feigenbaum's calculator. The period-doubling cascade with its split points marked, the gaps
+// between them, and the ratios of consecutive gaps converging to 4.669. Then the sine map beside the
+// logistic map: a different equation, the same number. Then the constant itself.
+// Cues: splitsAt, gapsAt, ratioAt, sineAt, sameAt, univAt, duration.
+Scene.run(({ ctx, W, H, S, num }) => {
+  const duration = num('duration', 45), splitsAt = num('splitsAt', 6), gapsAt = num('gapsAt', 14), ratioAt = num('ratioAt', 17),
+    sineAt = num('sineAt', 24), sameAt = num('sameAt', 29), univAt = num('univAt', 34);
+  const { smooth, text } = Scene;
+  const MONO = 'ui-monospace, Menlo, monospace', SERIF = '"Times New Roman", Georgia, serif';
+  // phase 1: the cascade
+  const R0 = 2.95, R1 = 3.58, X0 = 0.25, X1 = 0.95, px0 = W * 0.07, px1 = W * 0.93, py0 = H * 0.12, py1 = H * 0.58;
+  const pw = px1 - px0, ph = py1 - py0;
+  const img = Bif.render(pw, ph, { r0: R0, r1: R1, x0: X0, x1: X1, iters: 3000, warm: 6000, samples: 3 });
+  const rx = r => px0 + pw * (r - R0) / (R1 - R0);
+  const SPLITS = [3, 3.4494897, 3.5440903, 3.5644073, 3.5687594, 3.5696916];
+  const GAP = SPLITS.slice(1).map((r, i) => r - SPLITS[i]);
+  const GAPC = ['#ffcf6a', '#ff9a7a', '#c58cff', '#7fb6ff', '#8affc1'];
+  const sig = (v, n) => v.toPrecision(n);
+  // phase 2: two different equations
+  const sine = (r, x) => r * Math.sin(Math.PI * x);
+  const qw = W * 0.4, qh = H * 0.5, qy = H * 0.25;
+  const imgL = Bif.render(qw, qh, { r0: 2.9, r1: 4, iters: 1500, warm: 1500, samples: 2 });
+  const imgS = Bif.render(qw, qh, { r0: 0.7, r1: 1, iters: 1500, warm: 1500, samples: 2, map: sine });
+
+  return {
+    duration,
+    frame(t) {
+      ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
+      ctx.fillStyle = '#05050a'; ctx.fillRect(0, 0, W, H);
+      const p1 = smooth(t / 0.8) * (1 - smooth((t - sineAt) / 0.9)), p2 = smooth((t - sineAt - 0.5) / 0.9);
+
+      if (p1 > 0) {
+        ctx.globalAlpha = p1; ctx.drawImage(img, px0, py0); ctx.globalAlpha = 1;
+        text(ctx, 'Mitchell Feigenbaum  ·  Los Alamos, 1975', W / 2, H * 0.8, { size: S * 0.034, weight: 500, alpha: p1 * (1 - smooth((t - ratioAt + 0.8) / 0.6)) });
+        // split points
+        SPLITS.slice(0, 4).forEach((r, i) => {
+          const a = p1 * smooth((t - splitsAt - i * 0.5) / 0.5);
+          if (a <= 0) return;
+          ctx.globalAlpha = a; ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.lineWidth = 1.5; ctx.setLineDash([6, 6]);
+          ctx.beginPath(); ctx.moveTo(rx(r), py0); ctx.lineTo(rx(r), py1); ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha = 1;
+          text(ctx, r.toFixed(3), rx(r), py0 - S * (i % 2 ? 0.035 : 0.075), { size: S * 0.024, weight: 500, font: MONO, alpha: a });
+        });
+        // gaps between splits
+        GAP.slice(0, 3).forEach((g, i) => {
+          const a = p1 * smooth((t - gapsAt - i * 0.4) / 0.5);
+          if (a <= 0) return;
+          const xa = rx(SPLITS[i]), xb = rx(SPLITS[i + 1]), y = py1 + S * 0.035;
+          ctx.globalAlpha = a; ctx.strokeStyle = GAPC[i]; ctx.lineWidth = S * 0.005; ctx.lineCap = 'butt';
+          ctx.beginPath(); ctx.moveTo(xa + 2, y); ctx.lineTo(xb - 2, y); ctx.stroke(); ctx.globalAlpha = 1;
+        });
+        // ratios of consecutive gaps
+        const rows = [0, 1, 2, 3].map(i => [`${sig(GAP[i], 5)}  ÷  ${sig(GAP[i + 1], 5)}`, (GAP[i] / GAP[i + 1]).toFixed(3), i]);
+        rows.forEach(([s, v, i]) => {
+          const a = p1 * smooth((t - ratioAt - i * 0.7) / 0.5), y = H * 0.68 + i * S * 0.055;
+          text(ctx, s, W * 0.56, y, { size: S * 0.03, weight: 400, font: MONO, align: 'right', alpha: a * 0.85, color: GAPC[i] });
+          text(ctx, '=  ' + v, W * 0.58, y, { size: S * 0.03, weight: 600, font: MONO, align: 'left', alpha: a });
+        });
+      }
+
+      if (p2 > 0) {
+        const xs = [W * 0.07, W * 0.53];
+        [[imgL, 'x  →  r · x · (1 − x)', 'rabbits'], [imgS, 'x  →  r · sin(π x)', 'a sine wave']].forEach(([im, eq, name], i) => {
+          const a = p2 * smooth((t - sineAt - 0.5 - i * 0.8) / 0.8);
+          ctx.globalAlpha = a; ctx.drawImage(im, xs[i], qy); ctx.globalAlpha = 1;
+          ctx.strokeStyle = `rgba(255,255,255,${0.2 * a})`; ctx.lineWidth = 1.5; ctx.strokeRect(xs[i], qy, qw, qh);
+          text(ctx, eq, xs[i] + qw / 2, qy - S * 0.07, { size: S * 0.045, weight: 400, font: SERIF, alpha: a });
+          text(ctx, name, xs[i] + qw / 2, qy - S * 0.025, { size: S * 0.022, weight: 400, alpha: a * 0.55 });
+          const sa = smooth((t - sameAt - i * 0.5) / 0.6);
+          text(ctx, 'gaps shrink by  4.669…', xs[i] + qw / 2, qy + qh + S * 0.06, { size: S * 0.034, weight: 600, font: MONO, color: '#ffcf6a', alpha: p2 * sa });
+        });
+        const ua = p2 * smooth((t - univAt) / 0.8);
+        if (ua > 0) {
+          ctx.fillStyle = `rgba(5,5,10,${0.7 * ua})`; ctx.fillRect(0, 0, W, H);
+          text(ctx, "FEIGENBAUM'S CONSTANT", W / 2, H * 0.36, { size: S * 0.03, weight: 600, tracking: S * 0.005, alpha: ua * 0.7 });
+          text(ctx, 'δ = 4.669201609…', W / 2, H * 0.47, { size: S * 0.1, weight: 400, font: SERIF, alpha: ua });
+          const fa = smooth((t - univAt - 2.5) / 0.8);
+          text(ctx, 'The same pattern appears in liquid helium heated from below', W / 2, H * 0.66, { size: S * 0.028, weight: 400, alpha: fa * 0.8 });
+          text(ctx, 'A. Libchaber and J. Maurer, 1980', W / 2, H * 0.66 + S * 0.045, { size: S * 0.022, weight: 400, alpha: fa * 0.55 });
+        }
+      }
+    },
+  };
+});
+</script>
+</body></html>

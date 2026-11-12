@@ -89,6 +89,7 @@
   const canvas = document.getElementById('c'), ov = document.getElementById('ov');
   const ctx = canvas.getContext('2d', { alpha: false }), octx = ov.getContext('2d');
   let W = 0, H = 0, dpr = 1, hist, img, passes = 0, diving = !!P.dive;
+  const dive0 = view.r1 - view.r0;   // view width when a recorded dive starts
   const history_ = [];
 
   // seeded RNG so record mode is deterministic
@@ -147,7 +148,7 @@
   }
 
   // Dive: zoom toward the Feigenbaum point, shrinking r by δ and x by α per doubling (true self-similarity)
-  const DIVE_RATE = 0.35;   // doublings per second
+  const DIVE_RATE = num('diveRate', 0.35);   // doublings per second
   function diveStep(dt) {
     const k = Math.pow(DELTA, -DIVE_RATE * dt), kx = Math.pow(ALPHA, -DIVE_RATE * dt);
     const rc = R_INF, xc = 0.5;
@@ -161,7 +162,14 @@
 
   let busyUntil = 0, moved = true;   // while panning/zooming, draw quick low-detail previews
   function frame(dt) {
-    if (diving) { diveStep(dt); invalidate(); pass(Math.round(P.detail * 0.6)); pass(Math.round(P.detail * 0.6)); paint(); updateWhere(); }
+    if (diving) {
+      diveStep(dt); invalidate();
+      // in a video, keep the picture dense at any depth: near the cascade the population only passes through
+      // the zoomed window once every 2^n years (n = doublings zoomed so far), so iterate 2^n times longer
+      const n = P.record ? Math.max(0, Math.log((dive0 || 1) / (view.r1 - view.r0)) / Math.log(DELTA)) : 0;
+      const d = Math.round(P.detail * 0.6 * Math.pow(2, n));
+      pass(d); pass(d); paint(); if (!P.record) updateWhere();
+    }
     else if (moved && performance.now() < busyUntil) { moved = false; invalidate(); pass(Math.round(P.detail * 0.3)); paint(); }
     else if (passes < 10) { pass(P.detail); paint(); }
   }
@@ -169,8 +177,81 @@
   if (P.record) {
     document.body.classList.add('record');
     resize(); pass(P.detail); pass(P.detail); paint();
+    // video overlays (all optional, times in seconds): an equation card, a title card, a two-line caption,
+    // a magnification readout, the dive's scale factors, and a smooth zoom from the start view to zr0..zx1
+    const str = (k, d) => (q.has(k) ? q.get(k) : d);
+    const V = { eqIn: num('eqIn', 1e9), eqOut: num('eqOut', 1e9), titleAt: num('titleAt', -1), title: str('title', ''),
+      cap1: str('cap1', ''), cap2: str('cap2', ''), capIn: num('capIn', 0), capOut: num('capOut', 1e9),
+      readout: num('readout', 0), scaleIn: num('scaleIn', -1), scaleOut: num('scaleOut', 1e9),
+      zoom: num('zoom', 0), zoomAt: num('zoomAt', 0), zoomEnd: num('zoomEnd', 5) };
+    const Z0 = { ...view }, Z1 = { r0: num('zr0', view.r0), r1: num('zr1', view.r1), x0: num('zx0', view.x0), x1: num('zx1', view.x1) };
+    const sm = x => { x = Math.max(0, Math.min(1, x)); return x * x * (3 - 2 * x); };
+    const win = (t, a, b, fi = 0.6, fo = 0.6) => sm((t - a) / fi) * sm((b - t) / fo);
+    const S = Math.min(W, H), SANS = 'system-ui, -apple-system, "Helvetica Neue", sans-serif';
+    function label(s, x, y, size, alpha, o = {}) {
+      if (alpha <= 0 || !s) return;
+      ctx.save(); ctx.globalAlpha = alpha; ctx.fillStyle = o.color || '#fff'; ctx.textAlign = o.align || 'center'; ctx.textBaseline = 'middle';
+      ctx.font = `${o.weight || 600} ${Math.round(size)}px ${o.font || SANS}`; ctx.shadowColor = 'rgba(0,0,0,0.9)'; ctx.shadowBlur = size * 0.6;
+      if (o.tracking) ctx.letterSpacing = o.tracking + 'px';
+      ctx.fillText(s, x, y); ctx.restore();
+    }
+    // optional waypoint view (zm*) reached at zoomMid: the zoom goes start -> waypoint -> end
+    const ZM = q.has('zmr0') ? { r0: num('zmr0', 0), r1: num('zmr1', 0), x0: num('zmx0', 0), x1: num('zmx1', 0) } : null;
+    const zoomMid = num('zoomMid', 0);
+    function zoomSeg(A, B, u) {   // geometric interpolation of size; the centre moves with the zoom's progress (log scale)
+      const lg = (a, b) => a * Math.pow(b / a, u), li = (a, b, k) => a + (b - a) * k;
+      const rw = lg(A.r1 - A.r0, B.r1 - B.r0), xw = lg(A.x1 - A.x0, B.x1 - B.x0);
+      const tot = Math.log(((A.r1 - A.r0) * (A.x1 - A.x0)) / ((B.r1 - B.r0) * (B.x1 - B.x0)));
+      const k = Math.abs(tot) > 1e-9 ? Math.log(((A.r1 - A.r0) * (A.x1 - A.x0)) / (rw * xw)) / tot : u;
+      const rc = li((A.r0 + A.r1) / 2, (B.r0 + B.r1) / 2, k), xc = li((A.x0 + A.x1) / 2, (B.x0 + B.x1) / 2, k);
+      return { r0: rc - rw / 2, r1: rc + rw / 2, x0: xc - xw / 2, x1: xc + xw / 2 };
+    }
+    function zoomView(t) {
+      if (!ZM) return zoomSeg(Z0, Z1, sm((t - V.zoomAt) / Math.max(0.01, V.zoomEnd - V.zoomAt)));
+      if (t < zoomMid) return zoomSeg(Z0, ZM, sm((t - V.zoomAt) / Math.max(0.01, zoomMid - V.zoomAt)));
+      return zoomSeg(ZM, Z1, sm((t - zoomMid - 0.6) / Math.max(0.01, V.zoomEnd - zoomMid - 0.6)));
+    }
+    let fr = 0, settled = false;
     window.__recorder = { ready: true, width: W, height: H, fps: P.fps,
-      frame(type = 'image/png', quality) { if (diving) frame(1 / P.fps); else { pass(P.detail); paint(); } return canvas.toDataURL(type, quality); } };
+      frame(type = 'image/png', quality) {
+        const t = fr++ / P.fps;
+        if (diving) frame(1 / P.fps);
+        else if (V.zoom && t <= V.zoomEnd + 0.05) { view = zoomView(t); invalidate(); pass(P.detail); pass(P.detail); paint(); }
+        else { if (V.zoom && !settled) { settled = true; invalidate(); pass(P.detail); } pass(P.detail); paint(); }
+        // equation card
+        const ea = win(t, V.eqIn, V.eqOut, 0.8, 0.8);
+        if (ea > 0) {
+          ctx.save(); ctx.globalAlpha = 0.6 * ea; ctx.fillStyle = '#05050a'; ctx.fillRect(0, H * 0.82, W, H * 0.18); ctx.restore();
+          label('x  →  r · x · (1 − x)', W / 2, H * 0.91, S * 0.06, ea, { weight: 400, font: '"Times New Roman", Georgia, serif' });
+        }
+        // title card
+        const ta = V.titleAt >= 0 ? sm((t - V.titleAt) / 0.9) : 0;
+        if (ta > 0) {
+          ctx.save(); ctx.globalAlpha = 0.55 * ta; ctx.fillStyle = '#05050a'; ctx.fillRect(0, 0, W, H); ctx.restore();
+          label(V.title, W / 2, H / 2, S * 0.09, ta, { weight: 700 });
+        }
+        // caption (bottom left)
+        const ca = win(t, V.capIn, V.capOut);
+        if (ca > 0 && V.cap1) {
+          const g = ctx.createLinearGradient(0, H * 0.7, 0, H); g.addColorStop(0, 'rgba(5,5,10,0)'); g.addColorStop(1, 'rgba(5,5,10,0.8)');
+          ctx.save(); ctx.globalAlpha = ca; ctx.fillStyle = g; ctx.fillRect(0, H * 0.7, W, H * 0.3); ctx.restore();
+          label(V.cap1, W * 0.06, H * 0.86, S * 0.05, ca, { align: 'left', weight: 600, font: '"Times New Roman", Georgia, serif' });
+          label(V.cap2, W * 0.06, H * 0.86 + S * 0.06, S * 0.03, ca * 0.75, { align: 'left', weight: 400 });
+        }
+        // magnification readout (bottom right) and the dive's scale factors (bottom left)
+        if (V.readout) {
+          const z = (HOME.r1 - HOME.r0) / (view.r1 - view.r0);
+          const zs = Math.round(z).toLocaleString('en-US');
+          const g = ctx.createLinearGradient(0, H * 0.75, 0, H); g.addColorStop(0, 'rgba(5,5,10,0)'); g.addColorStop(1, 'rgba(5,5,10,0.75)');
+          ctx.save(); ctx.fillStyle = g; ctx.fillRect(0, H * 0.75, W, H * 0.25); ctx.restore();
+          label('MAGNIFICATION', W * 0.94, H * 0.865, S * 0.022, 0.6 * sm(t / 0.8), { align: 'right', tracking: S * 0.003 });
+          label(zs + '×', W * 0.94, H * 0.915, S * 0.048, sm(t / 0.8), { align: 'right', weight: 600, font: 'ui-monospace, Menlo, monospace' });
+          const sa = win(t, V.scaleIn, V.scaleOut, 0.8, 0.8);
+          label('sideways  ÷ 4.669', W * 0.06, H * 0.865, S * 0.034, sa, { align: 'left', weight: 400, font: 'ui-monospace, Menlo, monospace', color: '#ffd28a' });
+          label('up and down  ÷ 2.503', W * 0.06, H * 0.915, S * 0.034, sa, { align: 'left', weight: 400, font: 'ui-monospace, Menlo, monospace', color: '#ffd28a' });
+        }
+        return canvas.toDataURL(type, quality);
+      } };
     return;
   }
 

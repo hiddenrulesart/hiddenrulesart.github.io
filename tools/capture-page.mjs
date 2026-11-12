@@ -4,7 +4,7 @@
 // so every frame is exactly 1/fps apart no matter how slow the screenshots are.
 //
 // Usage: node tools/capture-page.mjs <page path> <choreography.mjs> --seconds 20 --out file.mp4 [--w 1920 --h 1080 --scale 1 --fps 60]
-//   choreography.mjs default-exports  async ({ page, W, H, fps, seconds }) => (t) => ({ x, y, down, banner })
+//   choreography.mjs default-exports  async ({ page, W, H, fps, seconds }) => (t) => ({ x, y, down, wheel, banner })
 //   i.e. a factory that returns, for each video time t, where the cursor is and whether the button is down.
 import http from 'node:http';
 import fs from 'node:fs';
@@ -71,6 +71,7 @@ try {
     await page.mouse.move(s.x, s.y);
     if (s.down && !down) await page.mouse.down(); else if (!s.down && down) await page.mouse.up();
     down = !!s.down;
+    if (s.wheel) await page.mouse.wheel({ deltaY: s.wheel });   // scroll-zoom, in pixels per frame
     await page.evaluate((dt, banner) => {
       const b = document.getElementById('__banner');
       if (banner) { b.textContent = banner.text; b.style.opacity = banner.alpha; } else b.style.opacity = 0;

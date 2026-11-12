@@ -1,0 +1,27 @@
+{
+  "segments": [
+    {"id": "hook", "text": "This picture comes from one line of algebra. One multiplication, and one subtraction."},
+    {"id": "hook2", "text": "Zoom into it, and it keeps making copies of itself. Forever."},
+    {"id": "rab1", "text": "Here's the setup. Take a population of rabbits. Each year they breed, so next year there are more of them, multiplied by a growth rate, r."},
+    {"id": "rab2", "text": "But the more rabbits there are, the less food there is to go around, and the population gets pulled back down."},
+    {"id": "rab3", "text": "Written as math: next year's population equals r, times this year's, times one minus this year's. That's the whole model."},
+    {"id": "rab4", "text": "In 1976, the ecologist Robert May made it famous, with a warning: even this simple model can do very strange things."},
+    {"id": "dial1", "text": "Turn up the growth rate. At two point eight, the population wobbles a little, then settles down."},
+    {"id": "dial2", "text": "Past three, it stops settling. Boom year, bust year. Boom, bust, forever."},
+    {"id": "dial3", "text": "A little higher, and it cycles through four values. Then eight. Then sixteen."},
+    {"id": "dial4", "text": "And at about three point five seven, it never repeats at all. Same equation. No randomness. Chaos."},
+    {"id": "pic1", "text": "Now put every growth rate into one picture. Each column is one value of r. Run the rabbits for a thousand years, and mark where the population keeps landing."},
+    {"id": "pic2", "text": "One line splits into two. Two into four. The splits come faster and faster, and then it all explodes into chaos."},
+    {"id": "pic3", "text": "But inside the chaos there are gaps: calm windows where order comes back. In this one, the population cycles through exactly three values."},
+    {"id": "win1", "text": "Zoom into that window, and inside it is a tiny copy of the entire picture. Splitting, doubling, chaos, all over again."},
+    {"id": "win2", "text": "The paper that first used the word chaos in this sense had a famous title: Period Three Implies Chaos."},
+    {"id": "feig1", "text": "In 1975, a physicist named Mitchell Feigenbaum was studying these splits on a programmable pocket calculator. It was slow, so to save time, he started predicting where the next split would land."},
+    {"id": "feig2", "text": "He noticed that the gaps between the splits shrink by the same ratio every time. About four point six six nine."},
+    {"id": "feig3", "text": "Then he tried a completely different equation, built from a sine wave instead of rabbits. Same number. Four point six six nine."},
+    {"id": "feig4", "text": "It's now called Feigenbaum's constant, and it's universal. Experiments later found the same pattern in real fluids, heated from below."},
+    {"id": "dive1", "text": "And that number is the zoom factor of this fractal. Shrink the picture by four point six six nine one way, and two point five the other, and the same picture comes back."},
+    {"id": "dive2", "text": "This view is now magnified more than a million times, and the copies still haven't run out."},
+    {"id": "site", "text": "You can explore it yourself. The link is in the description. Hover over any column to see what the rabbits are doing, and zoom in as far as you like."},
+    {"id": "next", "text": "So far, chaos has turned up in pendulums, in weather, and in rabbits. But it was first discovered somewhere much bigger: in the sky. Newton solved the motion of two bodies. Nobody has ever solved three. That's the next video."}
+  ]
+}

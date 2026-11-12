@@ -103,6 +103,35 @@ Narration voice generated with ElevenLabs.
 
 ---
 
+## Episode 3: logistic map
+
+**Thumbnail:** to render after the episode (the bifurcation diagram, no text)
+
+**Title:** One Line of Algebra About Rabbits Hides Infinity
+Alternatives: "The Number Hiding Inside Chaos: 4.669" · "Period Three Implies Chaos"
+
+**Description:** (chapter times to fill in from the final build)
+```
+Explore it yourself: https://hiddenrulesart.github.io/rabbits
+
+Next year's rabbits = r × this year's × (1 − this year's). Turn up the growth rate and the population settles, then bounces between 2 values, 4, 8, 16, and then never repeats. Inside the chaos are copies of the whole picture, and the splits arrive at a rate set by a universal number: Feigenbaum's constant, 4.669.
+
+Sources
+- R. M. May, "Simple mathematical models with very complicated dynamics", Nature 261 (1976)
+- T.-Y. Li and J. A. Yorke, "Period Three Implies Chaos", American Mathematical Monthly 82 (1975)
+- M. J. Feigenbaum, "Quantitative universality for a class of nonlinear transformations", Journal of Statistical Physics 19 (1978)
+- A. Libchaber and J. Maurer, "Une expérience de Rayleigh-Bénard de géométrie réduite", Journal de Physique Colloques 41 (1980)
+
+Season 1: Chaos · Episode 3
+Previous: the butterfly effect (episode 2). Next: the three-body problem.
+
+Narration voice generated with ElevenLabs.
+```
+
+**Tags:** logistic map, bifurcation diagram, Feigenbaum constant, chaos theory, period doubling, fractal, Robert May, generative art
+
+---
+
 ## Upload checklist
 - Add each episode to **Season 1: Chaos** (and episode 1 to **Start Here**).
 - **End screen** (last 20 s): Video element on the **left** + Subscribe element on the **right**, small, never over the

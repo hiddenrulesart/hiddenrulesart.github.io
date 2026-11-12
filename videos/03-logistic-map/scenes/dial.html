@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Turning up r</title></head>
+<body>
+<script src="../../../lib/scene.js"></script>
+<script src="bif.js"></script>
+<script>
+// Scene 3: turn up the growth rate. The population over 64 years (after it has had time to settle),
+// with a dial for r. 2.8 settles; 3.2 bounces between 2 values; 3.5 cycles through 4; then 8, 16;
+// 3.7 never repeats. Faint guide lines mark the values a cycle visits.
+// Cues (when r reaches each value): k1 (2.8), k2 (3.2), k4 (3.5), k8 (3.555), k16 (3.5665), kc (3.7).
+Scene.run(({ ctx, W, H, S, num }) => {
+  const duration = num('duration', 30);
+  const KEYS = [[0, 2.55], [num('k1', 2), 2.8], [num('k2', 8), 3.2], [num('k4', 14), 3.5], [num('k8', 16), 3.555],
+    [num('k16', 18), 3.5665], [num('kc', 23), 3.7]];
+  const { smooth, text } = Scene;
+  const MONO = 'ui-monospace, Menlo, monospace';
+  const NAMES = p => (p === 1 ? 'settles to one value' : p ? `cycles through ${p} values` : 'never repeats');
+  const rAt = t => {   // r eases to each key value over the 1.1 s before its cue
+    let r = KEYS[0][1];
+    for (const [at, v] of KEYS) r += (v - r) * smooth((t - (at - 1.1)) / 1.1);
+    return r;
+  };
+  const cache = new Map();
+  const info = r => { const k = r.toFixed(5); if (!cache.has(k)) cache.set(k, Bif.cycle(r)); return cache.get(k); };
+  let lastLabel = '', labelAt = -9;
+
+  return {
+    duration,
+    frame(t) {
+      ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
+      ctx.fillStyle = '#05050a'; ctx.fillRect(0, 0, W, H);
+      const intro = smooth(t / 0.8), r = rAt(t);
+      const settled = KEYS.some(([at, v]) => Math.abs(r - v) < 2e-5 && t > 0.5);
+
+      // the dial
+      const dx0 = W * 0.2, dx1 = W * 0.8, dy = H * 0.17, R0 = 2.5, R1 = 4;
+      const kx = v => dx0 + (dx1 - dx0) * (v - R0) / (R1 - R0);
+      ctx.globalAlpha = intro;
+      ctx.strokeStyle = 'rgba(255,255,255,0.18)'; ctx.lineWidth = S * 0.006; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(dx0, dy); ctx.lineTo(dx1, dy); ctx.stroke();
+      ctx.strokeStyle = '#ffcf6a'; ctx.beginPath(); ctx.moveTo(dx0, dy); ctx.lineTo(kx(r), dy); ctx.stroke();
+      for (const v of [2.5, 3, 3.5, 4]) text(ctx, v.toFixed(1), kx(v), dy + S * 0.04, { size: S * 0.02, weight: 400, alpha: 0.45 * intro, font: MONO });
+      ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(kx(r), dy, S * 0.014, 0, 7); ctx.fill();
+      ctx.globalAlpha = 1;
+      text(ctx, 'growth rate', dx0 - S * 0.03, dy, { size: S * 0.024, weight: 400, align: 'right', alpha: 0.6 * intro });
+      text(ctx, `r = ${r.toFixed(r > 3.55 && r < 3.6 ? 4 : 2)}`, dx1 + S * 0.03, dy, { size: S * 0.036, weight: 600, align: 'left', font: MONO, alpha: intro });
+
+      // the population over time
+      const gx0 = W * 0.1, gx1 = W * 0.9, gy0 = H * 0.32, gy1 = H * 0.84, N = 64;
+      ctx.strokeStyle = 'rgba(255,255,255,0.2)'; ctx.lineWidth = 2; ctx.globalAlpha = intro;
+      ctx.beginPath(); ctx.moveTo(gx0, gy0); ctx.lineTo(gx0, gy1); ctx.lineTo(gx1, gy1); ctx.stroke(); ctx.globalAlpha = 1;
+      text(ctx, 'population', gx0, gy0 - S * 0.03, { size: S * 0.022, weight: 400, align: 'left', alpha: 0.5 * intro });
+      text(ctx, 'years', gx1, gy1 + S * 0.035, { size: S * 0.022, weight: 400, align: 'right', alpha: 0.5 * intro });
+      // below 3, start from a small population so the early wobble shows; above, skip the settling-in years
+      let x = r < 3 ? 0.08 : 0.3; if (r >= 3) for (let i = 0; i < 60000; i++) x = r * x * (1 - x);
+      const pts = []; for (let i = 0; i < N; i++) { pts.push(x); x = r * x * (1 - x); }
+      const Y = v => gy1 - (gy1 - gy0) * v, X = i => gx0 + (gx1 - gx0) * (i + 0.5) / N;
+      const c = settled ? info(r) : { p: -1, vals: [] };
+      // guide lines at the values a cycle visits
+      if (c.p > 1 && c.p <= 16) {
+        ctx.strokeStyle = 'rgba(255,207,106,0.16)'; ctx.lineWidth = 1.5;
+        for (const v of c.vals) { ctx.beginPath(); ctx.moveTo(gx0, Y(v)); ctx.lineTo(gx1, Y(v)); ctx.stroke(); }
+      }
+      ctx.globalAlpha = intro; ctx.strokeStyle = '#9f8cff'; ctx.lineWidth = S * 0.003; ctx.lineJoin = 'round';
+      ctx.beginPath(); pts.forEach((p, i) => (i ? ctx.lineTo(X(i), Y(p)) : ctx.moveTo(X(i), Y(p)))); ctx.stroke();
+      ctx.fillStyle = '#e8e2ff';
+      pts.forEach((p, i) => { ctx.beginPath(); ctx.arc(X(i), Y(p), S * 0.0055, 0, 7); ctx.fill(); });
+      ctx.globalAlpha = 1;
+
+      // what the population does
+      if (c.p >= 0) { const s = NAMES(c.p); if (s !== lastLabel) { lastLabel = s; labelAt = t; } }
+      else if (lastLabel && t - labelAt > 0) { lastLabel = ''; labelAt = t; }
+      const la = lastLabel ? smooth((t - labelAt) / 0.4) : 0;
+      text(ctx, lastLabel, W / 2, H * 0.92, { size: S * 0.042, weight: 600, alpha: la, color: c.p === 0 ? '#ff9a7a' : '#ffffff' });
+    },
+  };
+});
+</script>
+</body></html>

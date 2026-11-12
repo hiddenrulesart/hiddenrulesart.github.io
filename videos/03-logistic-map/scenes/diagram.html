@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>The bifurcation diagram</title></head>
+<body>
+<script src="../../../lib/scene.js"></script>
+<script src="bif.js"></script>
+<script>
+// Scene 4: every growth rate in one picture. The diagram builds column by column behind a cursor;
+// an inset shows the population over time at the cursor. Then the calm windows inside the chaos are
+// marked, and the cursor moves into the period-3 window, where three points light up.
+// Cues: sweepAt, sweepEnd, gapsAt (windows marked), threeAt (cursor in the period-3 window), duration.
+Scene.run(({ ctx, W, H, S, num }) => {
+  const duration = num('duration', 35), sweepAt = num('sweepAt', 5), sweepEnd = num('sweepEnd', 18),
+    gapsAt = num('gapsAt', 22), threeAt = num('threeAt', 27);
+  const { smooth, text } = Scene;
+  const MONO = 'ui-monospace, Menlo, monospace';
+  const R0 = 2.5, R1 = 4, px0 = W * 0.07, px1 = W * 0.96, py0 = H * 0.06, py1 = H * 0.86;
+  const pw = px1 - px0, ph = py1 - py0;
+  const img = Bif.render(pw, ph, { r0: R0, r1: R1, iters: 1500, warm: 1000, samples: 3 });
+  const rx = r => px0 + pw * (r - R0) / (R1 - R0), xy = x => py1 - ph * x;
+  const R3 = 3.835;   // inside the period-3 window (it opens at 1 + √8 = 3.8284)
+  const WINDOWS = [[3.6265, 3.6304, '6'], [3.7382, 3.7411, '5'], [3.8284, 3.8568, '3']];
+  const c3 = Bif.cycle(R3);
+
+  return {
+    duration,
+    frame(t) {
+      ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
+      ctx.fillStyle = '#05050a'; ctx.fillRect(0, 0, W, H);
+      const intro = smooth(t / 0.8);
+      // axes
+      ctx.globalAlpha = intro; ctx.strokeStyle = 'rgba(255,255,255,0.22)'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(px0, py0); ctx.lineTo(px0, py1); ctx.lineTo(px1, py1); ctx.stroke(); ctx.globalAlpha = 1;
+      for (const v of [2.5, 3, 3.5, 4]) text(ctx, v.toFixed(1), rx(v), py1 + S * 0.035, { size: S * 0.022, weight: 400, alpha: 0.5 * intro, font: MONO });
+      text(ctx, 'growth rate  r', (px0 + px1) / 2, py1 + S * 0.08, { size: S * 0.026, weight: 500, alpha: 0.65 * intro });
+      ctx.save(); ctx.translate(px0 - S * 0.035, (py0 + py1) / 2); ctx.rotate(-Math.PI / 2);
+      text(ctx, 'where the population ends up', 0, 0, { size: S * 0.026, weight: 500, alpha: 0.65 * intro }); ctx.restore();
+
+      // the sweep
+      const u = smooth((t - sweepAt) / Math.max(0.5, sweepEnd - sweepAt)) * 0.15 + 0.85 * Math.max(0, Math.min(1, (t - sweepAt) / Math.max(0.5, sweepEnd - sweepAt)));
+      const cols = Math.round(pw * u);
+      if (cols > 0) ctx.drawImage(img, 0, 0, cols, ph, px0, py0, cols, ph);
+
+      // cursor: follows the sweep, then moves to the period-3 window
+      let rc = R0 + (R1 - R0) * u, ca = t > sweepAt ? smooth((t - sweepAt) / 0.5) * (1 - smooth((t - sweepEnd) / 0.6)) : 0;
+      const k3 = smooth((t - threeAt + 1.2) / 1.2);
+      if (k3 > 0) { rc = R1 + (R3 - R1) * k3; ca = k3; }
+      if (ca > 0) {
+        ctx.globalAlpha = ca; ctx.strokeStyle = 'rgba(255,255,255,0.55)'; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(rx(rc), py0); ctx.lineTo(rx(rc), py1); ctx.stroke();
+        // inset: the population over time at this r
+        const ix = px0 + S * 0.03, iw = S * 0.6, ih = S * 0.22, iy = py1 - ih - S * 0.03;   // bottom left: empty for every r it covers
+        ctx.fillStyle = 'rgba(16,16,28,0.92)'; ctx.strokeStyle = 'rgba(255,255,255,0.15)'; ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.roundRect(ix, iy, iw, ih, S * 0.012); ctx.fill(); ctx.stroke();
+        ctx.globalAlpha = 1;
+        text(ctx, `r = ${rc.toFixed(3)}`, ix + S * 0.02, iy + S * 0.03, { size: S * 0.024, weight: 600, align: 'left', font: MONO, alpha: ca });
+        let x = 0.3; for (let i = 0; i < 3000; i++) x = rc * x * (1 - x);
+        const N = 40, gx = ix + S * 0.02, gw = iw - S * 0.04, gy = iy + S * 0.06, gh = ih - S * 0.08;
+        ctx.globalAlpha = ca; ctx.strokeStyle = 'hsl(30,95%,62%)'; ctx.lineWidth = S * 0.0022; ctx.beginPath();
+        for (let i = 0; i < N; i++) { const X = gx + gw * i / (N - 1), Y = gy + gh * (1 - x); i ? ctx.lineTo(X, Y) : ctx.moveTo(X, Y); x = rc * x * (1 - x); }
+        ctx.stroke(); ctx.globalAlpha = 1;
+      }
+
+      // calm windows inside the chaos
+      const ga = smooth((t - gapsAt) / 0.8);
+      if (ga > 0) WINDOWS.forEach(([a, b, p], i) => {
+        const al = ga * smooth((t - gapsAt - i * 0.35) / 0.5) * (p === '3' ? 1 : 0.7);
+        const xa = rx(a) - 3, xb = rx(b) + 3, y = py0 - S * 0.002;
+        ctx.globalAlpha = al * 0.08; ctx.fillStyle = '#ffffff'; ctx.fillRect(xa, py0, xb - xa, ph); ctx.globalAlpha = al;
+        ctx.strokeStyle = '#ffcf6a'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(xa, py1 + 6); ctx.lineTo(xa, py1 + 14); ctx.lineTo(xb, py1 + 14); ctx.lineTo(xb, py1 + 6); ctx.stroke();
+        ctx.globalAlpha = 1;
+      });
+      // the three values of the period-3 window
+      const ta = smooth((t - threeAt) / 0.6);
+      if (ta > 0) {
+        ctx.globalCompositeOperation = 'lighter';
+        for (const v of c3.vals) {
+          const g = ctx.createRadialGradient(rx(R3), xy(v), 0, rx(R3), xy(v), S * 0.03);
+          g.addColorStop(0, `rgba(255,230,170,${ta})`); g.addColorStop(1, 'rgba(255,160,60,0)');
+          ctx.fillStyle = g; ctx.beginPath(); ctx.arc(rx(R3), xy(v), S * 0.03, 0, 7); ctx.fill();
+        }
+        ctx.globalCompositeOperation = 'source-over';
+        // label on a dark plate so it reads over the chaos
+        ctx.font = `600 ${Math.round(S * 0.032)}px system-ui, sans-serif`;
+        const lw = ctx.measureText('cycles through 3 values').width, lx = rx(R3) - S * 0.05, ly = py0 + ph * 0.5;
+        ctx.fillStyle = `rgba(10,10,18,${0.85 * ta})`; ctx.beginPath(); ctx.roundRect(lx - lw - S * 0.02, ly - S * 0.03, lw + S * 0.04, S * 0.06, S * 0.01); ctx.fill();
+        text(ctx, 'cycles through 3 values', lx, ly, { size: S * 0.032, weight: 600, align: 'right', alpha: ta });
+      }
+    },
+  };
+});
+</script>
+</body></html>
