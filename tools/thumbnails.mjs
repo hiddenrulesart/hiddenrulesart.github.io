@@ -23,6 +23,8 @@ const JOBS = [
     art: [['double-pendulum', BURST.replace('glow=0.35', 'glow=0.5'), Math.round(21.6 * 60), 0, 'full']], text: [] },
   { out: 'videos/02-lorenz/thumbnail.jpg',                   // the butterfly attractor
     art: [['lorenz', 'n=5000&spread=20&warm=12&trail=0.85&glow=0.08&rot=0&yaw=2.4&pitch=0.12&zoom=1.2', 150, 0, 'full']], text: [] },
+  { out: 'videos/03-logistic-map/thumbnail.jpg',             // the bifurcation diagram, from the first split into the chaos, with a margin; glow thickens the thin branches
+    art: [['logistic-map', 'r0=2.85&r1=4&x0=0&x1=1&detail=1500&contrast=0.45', 12, 0, 'inset', 1]], text: [] },
 ];
 
 const browser = await puppeteer.launch({ executablePath: CHROME, headless: true, protocolTimeout: 180000 });
@@ -33,7 +35,7 @@ try {
     const arts = [];
     for (const [piece, q, frames, dx, scale, thick] of j.art) {
       // 'full': render the piece at the thumbnail's own size (sharp, nothing cropped); otherwise a square to place
-      const [rw, rh] = scale === 'full' ? [W, H] : [H, H];
+      const [rw, rh] = scale === 'full' ? [W, H] : scale === 'inset' ? [Math.round(W * 0.86), Math.round(H * 0.8)] : [H, H];
       await p.goto(pathToFileURL(path.join(ROOT, 'pieces', piece, 'index.html')).href + `?record=1&w=${rw}&h=${rh}&${q}`);
       arts.push({ src: await p.evaluate(n => { let u; for (let i = 0; i < n; i++) u = window.__recorder.frame(); return u; }, frames), dx, scale, thick });
     }
@@ -53,7 +55,7 @@ try {
           g.globalCompositeOperation = 'source-over';
           g.filter = 'drop-shadow(0 0 2px #fff) drop-shadow(0 0 9px rgba(200,190,255,0.95))';
         }
-        if (a.scale === 'full') g.drawImage(src, 0, 0, W, H); else g.drawImage(src, W / 2 - s / 2 + a.dx * W, H / 2 - s / 2, s, s); g.filter = 'none'; g.globalCompositeOperation = 'lighten';
+        if (a.scale === 'full') g.drawImage(src, 0, 0, W, H); else if (a.scale === 'inset') g.drawImage(src, (W - src.width) / 2, (H - src.height) / 2); else g.drawImage(src, W / 2 - s / 2 + a.dx * W, H / 2 - s / 2, s, s); g.filter = 'none'; g.globalCompositeOperation = 'lighten';
       }
       g.globalCompositeOperation = 'source-over';
       const font = size => `900 ${size}px "Helvetica Neue", Arial Black, system-ui, sans-serif`;

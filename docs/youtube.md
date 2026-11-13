@@ -105,16 +105,33 @@ Narration voice generated with ElevenLabs.
 
 ## Episode 3: logistic map
 
-**Thumbnail:** to render after the episode (the bifurcation diagram, no text)
+**Thumbnail:** `videos/03-logistic-map/thumbnail.jpg` (the bifurcation diagram from r = 2.85 to 4, glowing, no text)
 
 **Title:** One Line of Algebra About Rabbits Hides Infinity
-Alternatives: "The Number Hiding Inside Chaos: 4.669" · "Period Three Implies Chaos"
+Alternatives: "The Number Hiding Inside Chaos: 4.669" · "Why Rabbit Populations Go Chaotic"
 
-**Description:** (chapter times to fill in from the final build)
+**Description:**
 ```
 Explore it yourself: https://hiddenrulesart.github.io/rabbits
 
-Next year's rabbits = r × this year's × (1 − this year's). Turn up the growth rate and the population settles, then bounces between 2 values, 4, 8, 16, and then never repeats. Inside the chaos are copies of the whole picture, and the splits arrive at a rate set by a universal number: Feigenbaum's constant, 4.669.
+A field can feed only so many rabbits. Each year they breed, multiplying by a growth rate r, and the fuller the field gets, the harder food pulls them back down. As one line of algebra: next year's population = r × this year's population × (1 − this year's population).
+
+Turn up the growth rate and the population settles, then bounces between 2 values, then 4, 8, 16, and finally never repeats at all: chaos, with nothing random in it. Put every growth rate into one picture and you get a fractal that contains copies of itself, forever. The splits along the way crowd together at a rate set by a universal number, Feigenbaum's constant, 4.669, the same for almost any rule shaped like a single hump.
+
+0:00 One line of algebra
+0:16 The rabbit model
+1:04 The equation, term by term
+1:28 Turning up the growth rate
+2:06 Chaos: the population never repeats
+2:36 Every growth rate in one picture
+3:26 Calm windows inside the chaos
+3:58 Feigenbaum's pocket calculator
+4:32 Each gap 4.669 times smaller
+5:01 Why chaos begins at 3.57
+5:18 A different equation, the same number
+5:50 Zooming a million times
+6:16 Explore it yourself
+6:32 Next: the three-body problem
 
 Sources
 - R. M. May, "Simple mathematical models with very complicated dynamics", Nature 261 (1976)
@@ -128,7 +145,9 @@ Previous: the butterfly effect (episode 2). Next: the three-body problem.
 Narration voice generated with ElevenLabs.
 ```
 
-**Tags:** logistic map, bifurcation diagram, Feigenbaum constant, chaos theory, period doubling, fractal, Robert May, generative art
+**Tags:** logistic map, bifurcation diagram, Feigenbaum constant, chaos theory, period doubling, fractal, Robert May, population dynamics, generative art
+
+**Card / end screen:** card at ~6:32 (on "So far, chaos has turned up…") linking the Season 1 playlist until episode 4 is out.
 
 ---
 
