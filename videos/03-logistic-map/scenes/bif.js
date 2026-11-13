@@ -45,5 +45,29 @@
     for (let p = 1; p <= 32; p++) { let ok = true; for (let i = 0; i + p < s.length && ok; i++) ok = Math.abs(s[i] - s[i + p]) < 1e-6; if (ok) return { p, vals: s.slice(0, p) }; }
     return { p: 0, vals: [] };
   }
-  root.Bif = { render, cycle, logistic, PAL };
+  // an equation as a row of tokens [text, color, subscript?], centred at (cx, y) in a serif face.
+  // Returns each token's centre x, so labels can be placed under the terms. alpha may be a number or
+  // a function of the token index (for terms that appear one at a time).
+  const SERIF = '"Times New Roman", Georgia, serif';
+  function eq(ctx, tokens, cx, y, size, alpha = 1, gap = size * 0.28) {
+    const sub = size * 0.5;
+    ctx.save();
+    const wOf = ([s, , b]) => { ctx.font = `400 ${Math.round(size)}px ${SERIF}`; let w = ctx.measureText(s).width;
+      if (b) { ctx.font = `400 ${Math.round(sub)}px ${SERIF}`; w += ctx.measureText(b).width + size * 0.04; } return w; };
+    const ws = tokens.map(wOf), total = ws.reduce((a, b) => a + b, 0) + gap * (tokens.length - 1);
+    let x = cx - total / 2; const mids = [];
+    tokens.forEach(([s, color, b], i) => {
+      const a = typeof alpha === 'function' ? alpha(i) : alpha;
+      ctx.globalAlpha = Math.max(0, a); ctx.fillStyle = color || '#fff'; ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'left';
+      ctx.font = `400 ${Math.round(size)}px ${SERIF}`;
+      ctx.fillText(s, x, y + size * 0.33);
+      if (b) { const w0 = ctx.measureText(s).width; ctx.font = `400 ${Math.round(sub)}px ${SERIF}`; ctx.fillText(b, x + w0 + size * 0.04, y + size * 0.55); }
+      mids.push(x + ws[i] / 2); x += ws[i] + gap;
+    });
+    ctx.restore();
+    return mids;
+  }
+  // the logistic map, x_next = r · x · (1 − x), as tokens
+  const LOGI_EQ = (cr = '#fff', cx = '#fff', cf = '#fff') => [['x', '#fff', 'next'], ['=', '#fff'], ['r', cr], ['·', '#fff'], ['x', cx], ['·', '#fff'], ['(1 − x)', cf]];
+  root.Bif = { render, cycle, logistic, PAL, eq, LOGI_EQ };
 })(window);

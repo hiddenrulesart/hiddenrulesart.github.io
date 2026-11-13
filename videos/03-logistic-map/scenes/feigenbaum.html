@@ -4,13 +4,16 @@
 <script src="../../../lib/scene.js"></script>
 <script src="bif.js"></script>
 <script>
-// Scene 6: Feigenbaum's calculator. The period-doubling cascade with its split points marked, the gaps
-// between them, and the ratios of consecutive gaps converging to 4.669. Then the sine map beside the
-// logistic map: a different equation, the same number. Then the constant itself.
-// Cues: splitsAt, gapsAt, ratioAt, sineAt, sameAt, univAt, duration.
+// Scene 6: Feigenbaum's calculator. The period-doubling cascade with its split points marked one by one
+// (sp1..sp4), the gaps between them listed (g1..g3), how much smaller each gap is than the last (ratioAt),
+// the limit 4.669 (limitAt), the gaps summing to a finite distance (sumAt) and the point where the splits
+// pile up and chaos begins (accumAt). Then the sine map beside the logistic map: a different equation, the
+// same number (sineAt, sameAt), each with its single-hump rule drawn (humpAt). Then the constant (univAt).
 Scene.run(({ ctx, W, H, S, num }) => {
-  const duration = num('duration', 45), splitsAt = num('splitsAt', 6), gapsAt = num('gapsAt', 14), ratioAt = num('ratioAt', 17),
-    sineAt = num('sineAt', 24), sameAt = num('sameAt', 29), univAt = num('univAt', 34);
+  const duration = num('duration', 80), splitsAt = num('splitsAt', 6),
+    SP = [num('sp1', 13), num('sp2', 15), num('sp3', 17), num('sp4', 19)], G = [num('g1', 24), num('g2', 27), num('g3', 30)],
+    ratioAt = num('ratioAt', 34), limitAt = num('limitAt', 39), sumAt = num('sumAt', 45), accumAt = num('accumAt', 50),
+    sineAt = num('sineAt', 56), sameAt = num('sameAt', 63), humpAt = num('humpAt', 66), univAt = num('univAt', 71);
   const { smooth, text } = Scene;
   const MONO = 'ui-monospace, Menlo, monospace', SERIF = '"Times New Roman", Georgia, serif';
   // phase 1: the cascade
@@ -36,40 +39,77 @@ Scene.run(({ ctx, W, H, S, num }) => {
       const p1 = smooth(t / 0.8) * (1 - smooth((t - sineAt) / 0.9)), p2 = smooth((t - sineAt - 0.5) / 0.9);
 
       if (p1 > 0) {
-        ctx.globalAlpha = p1; ctx.drawImage(img, px0, py0); ctx.globalAlpha = 1;
-        text(ctx, 'Mitchell Feigenbaum  ·  Los Alamos, 1975', W / 2, H * 0.8, { size: S * 0.034, weight: 500, alpha: p1 * (1 - smooth((t - ratioAt + 0.8) / 0.6)) });
-        // split points
+        // the diagram is dim until the splits are called out
+        ctx.globalAlpha = p1 * (0.55 + 0.45 * smooth((t - SP[0] + 0.5) / 0.6)); ctx.drawImage(img, px0, py0); ctx.globalAlpha = 1;
+        text(ctx, 'Mitchell Feigenbaum  ·  Los Alamos, 1975', W / 2, H * 0.8, { size: S * 0.034, weight: 500, alpha: p1 * smooth((t - splitsAt) / 0.8) * (1 - smooth((t - SP[0] + 0.6) / 0.6)) });
+        text(ctx, 'growth rate  r', px1, py1 + S * 0.035, { size: S * 0.022, weight: 400, align: 'right', alpha: 0.5 * p1 });
+        // split points, labelled as they are spoken
         SPLITS.slice(0, 4).forEach((r, i) => {
-          const a = p1 * smooth((t - splitsAt - i * 0.5) / 0.5);
+          const a = p1 * smooth((t - SP[i]) / 0.5);
           if (a <= 0) return;
           ctx.globalAlpha = a; ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.lineWidth = 1.5; ctx.setLineDash([6, 6]);
           ctx.beginPath(); ctx.moveTo(rx(r), py0); ctx.lineTo(rx(r), py1); ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha = 1;
           text(ctx, r.toFixed(3), rx(r), py0 - S * (i % 2 ? 0.035 : 0.075), { size: S * 0.024, weight: 500, font: MONO, alpha: a });
         });
-        // gaps between splits
-        GAP.slice(0, 3).forEach((g, i) => {
-          const a = p1 * smooth((t - gapsAt - i * 0.4) / 0.5);
-          if (a <= 0) return;
-          const xa = rx(SPLITS[i]), xb = rx(SPLITS[i + 1]), y = py1 + S * 0.035;
-          ctx.globalAlpha = a; ctx.strokeStyle = GAPC[i]; ctx.lineWidth = S * 0.005; ctx.lineCap = 'butt';
+        // the gaps: coloured bars under the diagram, and a table of their sizes
+        const tab = 1 - smooth((t - sumAt) / 0.6);
+        const ROWS = 4, ty = H * 0.7, rowH = S * 0.05;
+        const rowAt = i => (i < 3 ? G[i] : ratioAt + 1.4);
+        for (let i = 0; i < ROWS; i++) {
+          const a = p1 * smooth((t - rowAt(i)) / 0.5);
+          if (a <= 0) continue;
+          const xa = rx(SPLITS[i]), xb = rx(SPLITS[i + 1]), y = py1 + S * 0.065;
+          ctx.globalAlpha = a; ctx.strokeStyle = GAPC[i]; ctx.lineWidth = S * 0.006; ctx.lineCap = 'butt';
           ctx.beginPath(); ctx.moveTo(xa + 2, y); ctx.lineTo(xb - 2, y); ctx.stroke(); ctx.globalAlpha = 1;
-        });
-        // ratios of consecutive gaps
-        const rows = [0, 1, 2, 3].map(i => [`${sig(GAP[i], 5)}  ÷  ${sig(GAP[i + 1], 5)}`, (GAP[i] / GAP[i + 1]).toFixed(3), i]);
-        rows.forEach(([s, v, i]) => {
-          const a = p1 * smooth((t - ratioAt - i * 0.7) / 0.5), y = H * 0.68 + i * S * 0.055;
-          text(ctx, s, W * 0.56, y, { size: S * 0.03, weight: 400, font: MONO, align: 'right', alpha: a * 0.85, color: GAPC[i] });
-          text(ctx, '=  ' + v, W * 0.58, y, { size: S * 0.03, weight: 600, font: MONO, align: 'left', alpha: a });
-        });
+          const ry = ty + i * rowH;
+          text(ctx, `gap ${i + 1}`, W * 0.34, ry, { size: S * 0.03, weight: 500, align: 'right', color: GAPC[i], alpha: a * tab });
+          text(ctx, GAP[i].toFixed(i < 2 ? 3 : i < 3 ? 4 : 5), W * 0.37, ry, { size: S * 0.03, weight: 400, font: MONO, align: 'left', alpha: a * tab });
+          if (i > 0) {
+            const ra = p1 * tab * smooth((t - ratioAt - (i - 1) * 0.7) / 0.5);
+            text(ctx, `${(GAP[i - 1] / GAP[i]).toFixed(2)} times smaller`, W * 0.52, ry, { size: S * 0.03, weight: 600, font: MONO, align: 'left', alpha: ra });
+          }
+        }
+        const la = p1 * tab * smooth((t - limitAt) / 0.6);
+        text(ctx, '→  4.669…', W * 0.52, ty + ROWS * rowH + S * 0.01, { size: S * 0.04, weight: 600, font: MONO, align: 'left', color: '#ffcf6a', alpha: la });
+        // the gaps add up to a finite distance: the splits pile up at 3.5699
+        const sa = p1 * smooth((t - sumAt - 0.3) / 0.6);
+        if (sa > 0) {
+          const terms = ['3', '0.449', '0.095', '0.020', '0.004', '0.001', '…'];
+          ctx.font = `400 ${Math.round(S * 0.034)}px ${MONO}`;
+          let s = ''; terms.forEach((v, i) => (s += (i ? '  +  ' : '') + v));
+          text(ctx, s + '  =  3.5699…', W / 2, H * 0.72, { size: S * 0.034, weight: 400, font: MONO, alpha: sa });
+          text(ctx, 'every gap 4.669 times shorter than the last: the total stays finite', W / 2, H * 0.72 + S * 0.065, { size: S * 0.026, weight: 400, alpha: sa * 0.7 });
+        }
+        const aa = p1 * smooth((t - accumAt) / 0.6);
+        if (aa > 0) {
+          const xr = rx(3.5699456);
+          ctx.globalAlpha = aa; ctx.strokeStyle = '#ff9a7a'; ctx.lineWidth = 2.5;
+          ctx.beginPath(); ctx.moveTo(xr, py0); ctx.lineTo(xr, py1); ctx.stroke(); ctx.globalAlpha = 1;
+          text(ctx, 'chaos begins', xr - S * 0.02, py0 + ph * 0.33, { size: S * 0.03, weight: 600, align: 'right', color: '#ff9a7a', alpha: aa });
+          text(ctx, 'r = 3.5699…', xr - S * 0.02, py0 + ph * 0.33 + S * 0.04, { size: S * 0.026, weight: 500, font: MONO, align: 'right', color: '#ff9a7a', alpha: aa * 0.85 });
+          text(ctx, 'infinitely many splits fit before this line', W / 2, H * 0.72 + S * 0.13, { size: S * 0.03, weight: 600, alpha: aa });
+        }
       }
 
       if (p2 > 0) {
         const xs = [W * 0.07, W * 0.53];
-        [[imgL, 'x  →  r · x · (1 − x)', 'rabbits'], [imgS, 'x  →  r · sin(π x)', 'a sine wave']].forEach(([im, eq, name], i) => {
+        const EQS = [Bif.LOGI_EQ(), [['x', '#fff', 'next'], ['=', '#fff'], ['r', '#fff'], ['·', '#fff'], ['sin(π x)', '#fff']]];
+        const FN = [x => x * (1 - x) * 4, x => Math.sin(Math.PI * x)];
+        [[imgL, 'rabbits'], [imgS, 'a sine wave']].forEach(([im, name], i) => {
           const a = p2 * smooth((t - sineAt - 0.5 - i * 0.8) / 0.8);
           ctx.globalAlpha = a; ctx.drawImage(im, xs[i], qy); ctx.globalAlpha = 1;
           ctx.strokeStyle = `rgba(255,255,255,${0.2 * a})`; ctx.lineWidth = 1.5; ctx.strokeRect(xs[i], qy, qw, qh);
-          text(ctx, eq, xs[i] + qw / 2, qy - S * 0.07, { size: S * 0.045, weight: 400, font: SERIF, alpha: a });
+          Bif.eq(ctx, EQS[i], xs[i] + qw / 2, qy - S * 0.075, S * 0.045, a);
+          // the rule's shape: a single smooth hump (this year's x along the bottom, next year's up the side)
+          const ha = p2 * smooth((t - humpAt - i * 0.4) / 0.6);
+          if (ha > 0) {
+            const hx = xs[i] + S * 0.03, hw = S * 0.2, hh = S * 0.13, hy = qy + qh - hh - S * 0.07;
+            ctx.globalAlpha = ha; ctx.fillStyle = 'rgba(10,10,18,0.9)'; ctx.beginPath(); ctx.roundRect(hx, hy, hw, hh + S * 0.04, S * 0.01); ctx.fill();
+            ctx.strokeStyle = '#ffcf6a'; ctx.lineWidth = S * 0.004; ctx.beginPath();
+            for (let k = 0; k <= 60; k++) { const u = k / 60, X = hx + S * 0.015 + (hw - S * 0.03) * u, Y = hy + hh - (hh - S * 0.03) * FN[i](u); k ? ctx.lineTo(X, Y) : ctx.moveTo(X, Y); }
+            ctx.stroke(); ctx.globalAlpha = 1;
+            text(ctx, 'one smooth hump', hx + hw / 2, hy + hh + S * 0.018, { size: S * 0.02, weight: 500, alpha: ha * 0.8 });
+          }
           text(ctx, name, xs[i] + qw / 2, qy - S * 0.025, { size: S * 0.022, weight: 400, alpha: a * 0.55 });
           const sa = smooth((t - sameAt - i * 0.5) / 0.6);
           text(ctx, 'gaps shrink by  4.669…', xs[i] + qw / 2, qy + qh + S * 0.06, { size: S * 0.034, weight: 600, font: MONO, color: '#ffcf6a', alpha: p2 * sa });

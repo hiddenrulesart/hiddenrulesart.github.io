@@ -14,7 +14,7 @@ Scene.run(({ ctx, W, H, S, num }) => {
     [num('k16', 18), 3.5665], [num('kc', 23), 3.7]];
   const { smooth, text } = Scene;
   const MONO = 'ui-monospace, Menlo, monospace';
-  const NAMES = p => (p === 1 ? 'settles to one value' : p ? `cycles through ${p} values` : 'never repeats');
+  const NAMES = p => (p === 1 ? 'settles on one value' : p ? `repeats every ${p} years` : 'never repeats: every year lands somewhere new');
   const rAt = t => {   // r eases to each key value over the 1.1 s before its cue
     let r = KEYS[0][1];
     for (const [at, v] of KEYS) r += (v - r) * smooth((t - (at - 1.1)) / 1.1);
@@ -50,7 +50,7 @@ Scene.run(({ ctx, W, H, S, num }) => {
       ctx.strokeStyle = 'rgba(255,255,255,0.2)'; ctx.lineWidth = 2; ctx.globalAlpha = intro;
       ctx.beginPath(); ctx.moveTo(gx0, gy0); ctx.lineTo(gx0, gy1); ctx.lineTo(gx1, gy1); ctx.stroke(); ctx.globalAlpha = 1;
       text(ctx, 'population', gx0, gy0 - S * 0.03, { size: S * 0.022, weight: 400, align: 'left', alpha: 0.5 * intro });
-      text(ctx, 'years', gx1, gy1 + S * 0.035, { size: S * 0.022, weight: 400, align: 'right', alpha: 0.5 * intro });
+      text(ctx, 'years  (one dot per year)', gx1, gy1 + S * 0.035, { size: S * 0.022, weight: 400, align: 'right', alpha: 0.5 * intro });
       // below 3, start from a small population so the early wobble shows; above, skip the settling-in years
       let x = r < 3 ? 0.08 : 0.3; if (r >= 3) for (let i = 0; i < 60000; i++) x = r * x * (1 - x);
       const pts = []; for (let i = 0; i < N; i++) { pts.push(x); x = r * x * (1 - x); }

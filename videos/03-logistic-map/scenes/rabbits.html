@@ -2,17 +2,21 @@
 <html lang="en"><head><meta charset="utf-8"><title>Rabbits</title></head>
 <body>
 <script src="../../../lib/scene.js"></script>
+<script src="bif.js"></script>
 <script>
-// Scene 2: the model. A field of 240 burrows shows the population (fraction filled); a bar chart
-// grows one year at a time. Breeding multiplies by r; food pulls it back by (1 − x). Then the
-// equation assembles, in words and in symbols, and Robert May's 1976 paper is credited.
-// Cues: growAt (years start), foodAt (the food limit), eqAt (equation), mayAt (credit), duration.
+// Scene 2: the model. A field of 240 burrows shows the population x (the share of the field filled);
+// first x is defined (the field fills to one half), then a bar chart grows one year at a time.
+// Breeding multiplies by r; food pulls it back by (1 − x). Then the equation assembles term by term,
+// each term labelled in words, and Robert May's 1976 paper is credited.
+// Cues: xAt (x defined), halfAt (x = 0.5), growAt (years start), rAt (× r), foodAt (× (1 − x)),
+// eqAt, e1..e4 (the equation's terms), mayAt (credit), duration.
 Scene.run(({ ctx, W, H, S, num }) => {
-  const duration = num('duration', 40), growAt = num('growAt', 4), foodAt = num('foodAt', 11),
-    eqAt = num('eqAt', 18), mayAt = num('mayAt', 30);
+  const duration = num('duration', 50), xAt = num('xAt', 5), halfAt = num('halfAt', 8), growAt = num('growAt', 13),
+    rAt = num('rAt', 16), foodAt = num('foodAt', 24), eqAt = num('eqAt', 32), e1 = num('e1', 33), e2 = num('e2', 34.5),
+    e3 = num('e3', 36), e4 = num('e4', 38), mayAt = num('mayAt', 44);
   const { smooth, text } = Scene;
-  const SERIF = '"Times New Roman", Georgia, serif', MONO = 'ui-monospace, Menlo, monospace';
-  const R = 2.7, YEARS = 14, PER = 0.9;   // growth rate shown, years drawn, seconds per year
+  const MONO = 'ui-monospace, Menlo, monospace';
+  const R = 2.7, YEARS = 14, PER = 0.95, Y0 = growAt + 0.7;   // growth rate shown, years drawn, seconds per year, first year
   const pop = [0.08]; for (let i = 1; i < YEARS; i++) pop.push(R * pop[i - 1] * (1 - pop[i - 1]));
   // burrow order: a fixed shuffle, so the field fills in a scattered, natural way
   const COLS = 20, ROWS = 12, N = COLS * ROWS, order = Array.from({ length: N }, (_, i) => i);
@@ -26,62 +30,70 @@ Scene.run(({ ctx, W, H, S, num }) => {
       ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
       ctx.fillStyle = '#05050a'; ctx.fillRect(0, 0, W, H);
       const up = smooth((t - eqAt) / 1.2);                 // the field and chart move up and dim for the equation
-      const fade = 1 - 0.75 * up, lift = -H * 0.12 * up;
+      const fade = 1 - 0.85 * up, lift = -H * 0.14 * up;
 
-      // current (fractional) year
-      const yf = Math.max(0, Math.min(YEARS - 1, (t - growAt) / PER));
+      // the population: before the years start, x fills to one half (the definition), then drops to a
+      // small starting population and the years run
+      const yf = Math.max(0, Math.min(YEARS - 1, (t - Y0) / PER));
       const yi = Math.floor(yf), yk = smooth((yf - yi) / 0.5);
-      const x = yi + 1 < YEARS ? pop[yi] + (pop[yi + 1] - pop[yi]) * yk : pop[yi];
+      let x = yi + 1 < YEARS ? pop[yi] + (pop[yi + 1] - pop[yi]) * yk : pop[yi];
+      if (t < Y0) x = 0.5 * smooth((t - halfAt + 1.4) / 1.4) + (pop[0] - 0.5) * smooth((t - growAt) / 0.7);
 
       // the field
-      const fx = W * 0.08, fy = H * 0.24 + lift, cell = S * 0.034;
-      text(ctx, 'RABBITS', fx, fy - S * 0.05, { size: S * 0.022, align: 'left', tracking: S * 0.004, alpha: 0.6 * fade * smooth(t / 0.8) });
+      const fx = W * 0.08, fy = H * 0.26 + lift, cell = S * 0.034, ia = smooth(t / 0.8);
+      text(ctx, 'THE FIELD', fx, fy - S * 0.045, { size: S * 0.022, align: 'left', tracking: S * 0.004, alpha: 0.6 * fade * ia });
       const lit = x * N;
       for (let c = 0; c < N; c++) {
         const px = fx + (c % COLS) * cell + cell / 2, py = fy + ((c / COLS) | 0) * cell + cell / 2;
         const on = Math.max(0, Math.min(1, lit - rank[c]));
-        ctx.globalAlpha = fade * smooth(t / 0.8);
+        ctx.globalAlpha = fade * ia;
         ctx.fillStyle = 'rgba(255,255,255,0.07)'; ctx.beginPath(); ctx.arc(px, py, cell * 0.16, 0, 7); ctx.fill();
         if (on > 0) { ctx.globalAlpha = fade * on; ctx.fillStyle = '#ffcf8a'; ctx.beginPath(); ctx.arc(px, py, cell * 0.3, 0, 7); ctx.fill(); }
       }
       ctx.globalAlpha = 1;
-      text(ctx, `${Math.round(x * 100)}% of the land's capacity`, fx, fy + ROWS * cell + S * 0.045,
-        { size: S * 0.026, weight: 400, align: 'left', alpha: 0.75 * fade * smooth(t / 0.8), font: MONO });
+      const xa = smooth((t - xAt) / 0.6) * fade;
+      text(ctx, `x = ${x.toFixed(2)}`, fx, fy + ROWS * cell + S * 0.05, { size: S * 0.036, weight: 600, align: 'left', alpha: xa, font: MONO });
+      text(ctx, `the field is ${Math.round(x * 100)}% full`, fx + S * 0.25, fy + ROWS * cell + S * 0.05,
+        { size: S * 0.026, weight: 400, align: 'left', alpha: 0.7 * xa });
 
       // the bar chart, one bar per year
       const bx = W * 0.56, bw = W * 0.36, by = fy + ROWS * cell, bh = ROWS * cell, step = bw / YEARS;
-      ctx.strokeStyle = `rgba(255,255,255,${0.25 * fade})`; ctx.lineWidth = 2;
+      const ca = fade * smooth((t - growAt) / 0.6);
+      ctx.strokeStyle = `rgba(255,255,255,${0.25 * ca})`; ctx.lineWidth = 2;
       ctx.beginPath(); ctx.moveTo(bx, by - bh); ctx.lineTo(bx, by); ctx.lineTo(bx + bw, by); ctx.stroke();
-      text(ctx, 'year', bx + bw, by + S * 0.035, { size: S * 0.022, weight: 400, align: 'right', alpha: 0.5 * fade });
-      text(ctx, 'population', bx, by - bh - S * 0.03, { size: S * 0.022, weight: 400, align: 'left', alpha: 0.5 * fade });
-      for (let i = 0; i <= yi; i++) {
-        const a = i < yi ? 1 : smooth((yf - yi) / 0.4 + (i === 0 ? 1 : 0));
+      text(ctx, 'year', bx + bw, by + S * 0.035, { size: S * 0.022, weight: 400, align: 'right', alpha: 0.5 * ca });
+      text(ctx, 'population  x', bx, by - bh - S * 0.03, { size: S * 0.022, weight: 400, align: 'left', alpha: 0.5 * ca });
+      text(ctx, '1', bx - S * 0.015, by - bh, { size: S * 0.018, weight: 400, align: 'right', alpha: 0.4 * ca, font: MONO });
+      text(ctx, '0', bx - S * 0.015, by, { size: S * 0.018, weight: 400, align: 'right', alpha: 0.4 * ca, font: MONO });
+      if (t >= Y0) for (let i = 0; i <= yi; i++) {
         const v = i === yi ? x : pop[i];
-        ctx.globalAlpha = fade * (t >= growAt ? 1 : 0) * (i === yi ? 1 : 0.75);
+        ctx.globalAlpha = fade * (i === yi ? 1 : 0.75);
         ctx.fillStyle = i === yi ? '#ffcf8a' : '#c79a62';
         ctx.fillRect(bx + i * step + step * 0.18, by - bh * v, step * 0.64, bh * v);
       }
       ctx.globalAlpha = 1;
 
       // the two forces
-      const ga = smooth((t - growAt - 0.6) / 0.8) * fade, fa = smooth((t - foodAt) / 0.8) * fade;
-      text(ctx, 'they breed:  × r', W * 0.5, H * 0.13 + lift, { size: S * 0.038, weight: 500, alpha: ga * (1 - 0.45 * smooth((t - foodAt) / 0.8)), align: 'right' });
-      text(ctx, 'food runs short:  × (1 − x)', W * 0.53, H * 0.13 + lift, { size: S * 0.038, weight: 500, alpha: fa, align: 'left', color: '#ffb08a' });
+      const ga = smooth((t - rAt) / 0.8) * (1 - up), fa = smooth((t - foodAt) / 0.8) * (1 - up);
+      text(ctx, 'breeding:   × r', W * 0.5 - S * 0.02, H * 0.08 + lift, { size: S * 0.036, weight: 500, alpha: ga * (1 - 0.4 * smooth((t - foodAt) / 0.8)), align: 'right' });
+      text(ctx, 'r = growth rate', W * 0.5 + S * 0.02, H * 0.08 + lift, { size: S * 0.028, weight: 400, alpha: 0.6 * ga * (1 - 0.4 * smooth((t - foodAt) / 0.8)), align: 'left' });
+      text(ctx, 'food:   × (1 − x)', W * 0.5 - S * 0.02, H * 0.145 + lift, { size: S * 0.036, weight: 500, alpha: fa, align: 'right', color: '#ffb08a' });
+      text(ctx, '1 − x = share of the field still free', W * 0.5 + S * 0.02, H * 0.145 + lift, { size: S * 0.028, weight: 400, alpha: 0.7 * fa, align: 'left', color: '#ffb08a' });
 
-      // the equation, in words, then in symbols
+      // the equation, term by term, each with its meaning underneath
       if (up > 0) {
-        ctx.fillStyle = `rgba(5,5,10,${0.65 * up})`; ctx.fillRect(0, H * 0.5, W, H * 0.5);
-        const parts = [['next year', '#ffffff'], ['=', '#ffffff'], ['r', '#ffcf6a'], ['×', '#ffffff'], ['this year', '#ffffff'], ['×', '#ffffff'], ['(1 − this year)', '#ffb08a']];
-        ctx.font = `400 ${Math.round(S * 0.055)}px ${SERIF}`;
-        const gap = S * 0.025, widths = parts.map(([s]) => ctx.measureText(s).width), total = widths.reduce((a, b) => a + b, 0) + gap * (parts.length - 1);
-        let px = W / 2 - total / 2;
-        parts.forEach(([s, color], i) => {
-          const a = smooth((t - eqAt - 0.6 - i * 0.28) / 0.5);
-          text(ctx, s, px, H * 0.66 + (1 - a) * S * 0.02, { size: S * 0.055, weight: 400, font: SERIF, align: 'left', color, alpha: a });
-          px += widths[i] + gap;
-        });
-        const sa = smooth((t - eqAt - 3.2) / 0.8);
-        text(ctx, 'x  →  r · x · (1 − x)', W / 2, H * 0.8, { size: S * 0.06, weight: 400, font: SERIF, alpha: sa * 0.95 });
+        ctx.fillStyle = `rgba(5,5,10,${0.7 * up})`; ctx.fillRect(0, H * 0.48, W, H * 0.52);
+        const cues = [e1, e1, e2, e3, e3, e4, e4];
+        const al = i => smooth((t - cues[i]) / 0.5);
+        const size = S * 0.085, ey = H * 0.64;
+        const mids = Bif.eq(ctx, Bif.LOGI_EQ('#ffcf6a', '#ffffff', '#ffb08a'), W / 2, ey, size, al, size * 0.75);
+        const LBL = [[0, "next year's", 'population', '#ffffff'], [2, 'growth', 'rate', '#ffcf6a'],
+          [4, "this year's", 'population', '#ffffff'], [6, 'share of the field', 'still free', '#ffb08a']];
+        for (const [i, l1, l2, color] of LBL) {
+          const a = al(i) * 0.8;
+          text(ctx, l1, mids[i], ey + S * 0.1, { size: S * 0.026, weight: 400, alpha: a, color });
+          text(ctx, l2, mids[i], ey + S * 0.135, { size: S * 0.026, weight: 400, alpha: a, color });
+        }
       }
       // credit
       const ma = smooth((t - mayAt) / 0.8);
