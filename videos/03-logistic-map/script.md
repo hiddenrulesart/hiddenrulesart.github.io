@@ -26,7 +26,7 @@ The narration is in `voice.json` (the source of truth); `build.mjs` derives ever
 
 ## Narration
 
-**hook:** This picture comes from one line of algebra. One multiplication, and one subtraction.
+**hook:** This picture comes from one line of algebra. Two multiplications, and one subtraction.
 
 **hook2:** Zoom into it, and it keeps making copies of itself. Forever.
 

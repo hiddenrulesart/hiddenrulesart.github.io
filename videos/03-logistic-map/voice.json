@@ -1,6 +1,6 @@
 {
   "segments": [
-    {"id": "hook", "text": "This picture comes from one line of algebra. One multiplication, and one subtraction."},
+    {"id": "hook", "text": "This picture comes from one line of algebra. Two multiplications, and one subtraction."},
     {"id": "hook2", "text": "Zoom into it, and it keeps making copies of itself. Forever."},
     {"id": "rab1", "text": "Here's the setup. Take a population of rabbits. Each year they breed, so next year there are more of them, multiplied by a growth rate, r."},
     {"id": "rab2", "text": "But the more rabbits there are, the less food there is to go around, and the population gets pulled back down."},
