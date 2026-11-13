@@ -265,9 +265,12 @@
 
   // ---- view helpers
   const R_MIN = 0, R_MAX = 4, X_MIN = -0.05, X_MAX = 1.05;
+  // panning may carry the picture up to 40% of the screen past its edges, so a drag always moves it
+  // (even in the full view); outside 0 ≤ r ≤ 4 the population escapes and those columns are simply empty
+  const SLACK = 0.4;
   function clampView(v) {
     const rs = Math.min(v.r1 - v.r0, R_MAX - R_MIN), xs = Math.min(v.x1 - v.x0, X_MAX - X_MIN);
-    let r0 = Math.min(Math.max(v.r0, R_MIN), R_MAX - rs), x0 = Math.min(Math.max(v.x0, X_MIN), X_MAX - xs);
+    let r0 = Math.min(Math.max(v.r0, R_MIN - SLACK * rs), R_MAX - (1 - SLACK) * rs), x0 = Math.min(Math.max(v.x0, X_MIN - SLACK * xs), X_MAX - (1 - SLACK) * xs);
     return { r0, r1: r0 + rs, x0, x1: x0 + xs };
   }
   // change the view during an interaction (quick previews, URL synced when things settle)
