@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Twin universes</title></head>
+<body>
+<script src="../../../lib/scene.js"></script>
+<script src="../../../pieces/three-body/sim.js"></script>
+<script src="sky.js"></script>
+<script>
+// Two copies of the piece's "Butterfly effect" system; in the second (white outlines) star 1 starts
+// 1e-9 units to the right. Measured gap: 1e-9 at t=0, ~1e-6 by t≈7, ~1e-3 by t≈14, ~0.6 by t≈18.
+// The simulation clock is keyed (k1..k4 → s1..s4) so the counter passes those values as they are spoken.
+Scene.run(({ ctx, W, H, S, num }) => {
+  const duration = num('duration', 40);
+  const keys = [[0.8, 0]];
+  for (let i = 1; i <= 4; i++) if (num('k' + i, -1) >= 0) keys.push([num('k' + i, 0), num('s' + i, 0)]);
+  keys.push([duration + 1, (keys[keys.length - 1][1] || 0) + 6]);
+  const T = Sky.clock(keys);
+  const { smooth, text } = Scene;
+  const MONO = 'ui-monospace, Menlo, monospace';
+  const LIST = [[-1, 0.2, 0.1, -0.25, 1], [1, -0.1, -0.05, 0.3, 1], [0.2, 0.9, -0.2, 0, 1]];
+  const a = Sky.system(LIST, { eps: 0.01 }), b = Sky.system(LIST.map((q, i) => (i === 0 ? [q[0] + 1e-9, ...q.slice(1)] : q)), { eps: 0.01 });
+  const ta = Sky.trails(a, 4), tb = Sky.trails(b, 4);
+  const cam = { s: 0 };
+
+  return {
+    duration,
+    frame(t, dt) {
+      const target = T(t);
+      if (target > a.time) { a.step(target - a.time); b.step(target - b.time); }
+      ta.prune(); tb.prune();
+      Sky.follow(cam, a, W, H, dt, { minR: 1.6, margin: 1.35, rate: 0.6 });
+      ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
+      ctx.fillStyle = '#05050a'; ctx.fillRect(0, 0, W, H);
+      const al = smooth(t / 0.8);
+      Sky.drawTrails(ctx, b, tb, cam, W, H, S, { alpha: al * 0.5, color: '#d8d8e8', width: 0.6 });
+      Sky.drawTrails(ctx, a, ta, cam, W, H, S, { alpha: al });
+      Sky.drawBodies(ctx, a, cam, W, H, S, { alpha: al });
+      Sky.drawBodies(ctx, b, cam, W, H, S, { alpha: al, outline: true });
+      let d = 0; for (let i = 0; i < 3; i++) d = Math.max(d, Math.hypot(a.x[i] - b.x[i], a.y[i] - b.y[i]));
+      const ca = smooth((t - 1.5) / 0.8);
+      text(ctx, 'LARGEST GAP BETWEEN THE TWO COPIES', W * 0.06, H * 0.85, { size: S * 0.02, weight: 600, align: 'left', tracking: S * 0.003, alpha: 0.6 * ca });
+      text(ctx, d < 1 ? d.toFixed(9) : d.toFixed(2), W * 0.06, H * 0.91, { size: S * 0.046, weight: 600, align: 'left', font: MONO, alpha: ca, color: d > 0.05 ? '#ff9a7a' : '#ffffff' });
+      text(ctx, 'the stars are a few units apart', W * 0.94, H * 0.91, { size: S * 0.022, weight: 400, align: 'right', alpha: 0.5 * ca });
+    },
+  };
+});
+</script>
+</body></html>

@@ -12,7 +12,7 @@ Scene.run(({ ctx, W, H, S, num }) => {
   const duration = num('duration', 22), flingAt = num('flingAt', 11), nextAt = num('nextAt', 18);
   const { smooth, text } = Scene;
   const EJECT = 35, rate = EJECT / flingAt;   // simulation time units per second
-  const sim = ThreeBodySim.createSim(); sim.eps = 0;
+  const sim = ThreeBodySim.createSim(); sim.eps = 0; sim.eta = 0.015;   // the step size this teaser was published with
   for (const [x, y, vx, vy, m] of [[1, 3, 0, 0, 3], [-2, -1, 0, 0, 4], [1, -1, 0, 0, 5]]) sim.add(x, y, vx, vy, m);
   sim.center();
   const COL = ['#ffcf6a', '#b59cff', '#7fd8ff'];

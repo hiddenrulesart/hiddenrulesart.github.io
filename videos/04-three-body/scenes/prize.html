@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>King Oscar's prize</title></head>
+<body>
+<script src="../../../lib/scene.js"></script>
+<script>
+// King Oscar II's prize and Poincaré's mistake, as a four-entry timeline. Cues: c1..c4, duration.
+Scene.run(({ ctx, W, H, S, num }) => {
+  const duration = num('duration', 50), C = [num('c1', 1), num('c2', 10), num('c3', 20), num('c4', 32)];
+  const { smooth, text } = Scene;
+  const SERIF = '"Times New Roman", Georgia, serif';
+  const ROWS = [
+    ['1885', 'King Oscar II of Sweden offers a prize', 'for solving the motion of many bodies under gravity'],
+    ['1889', 'The prize is awarded to Henri Poincaré', 'for a memoir on the three-body problem; it does not solve it'],
+    ['1889', 'An error is found while the memoir is printed', 'correcting it, Poincaré discovers chaos'],
+    ['1890', 'The printed copies are recalled and destroyed', 'Poincaré pays for the corrected printing: more than the prize'],
+  ];
+  return {
+    duration,
+    frame(t) {
+      ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
+      ctx.fillStyle = '#05050a'; ctx.fillRect(0, 0, W, H);
+      const x0 = W * 0.2, y0 = H * 0.2, step = H * 0.17;
+      // the timeline rule
+      const la = smooth((t - C[0] + 0.4) / 0.8);
+      ctx.globalAlpha = la * 0.3; ctx.fillStyle = '#ffffff';
+      ctx.fillRect(x0 + S * 0.12, y0 - S * 0.02, 2, step * 3 * smooth((t - C[0]) / (C[3] - C[0] + 0.5)) + S * 0.04);
+      ctx.globalAlpha = 1;
+      ROWS.forEach(([year, l1, l2], i) => {
+        const a = smooth((t - C[i]) / 0.7), y = y0 + i * step, cur = i === ROWS.length - 1 || t < C[i + 1];
+        const k = a * (cur ? 1 : 0.55);
+        text(ctx, year, x0 + S * 0.09, y, { size: S * 0.05, weight: 400, font: SERIF, align: 'right', alpha: k, color: '#ffcf6a' });
+        ctx.globalAlpha = k; ctx.fillStyle = '#ffcf6a'; ctx.beginPath(); ctx.arc(x0 + S * 0.12 + 1, y, S * 0.008, 0, 7); ctx.fill(); ctx.globalAlpha = 1;
+        text(ctx, l1, x0 + S * 0.16, y - S * 0.018, { size: S * 0.036, weight: 600, align: 'left', alpha: k });
+        text(ctx, l2, x0 + S * 0.16, y + S * 0.03, { size: S * 0.026, weight: 400, align: 'left', alpha: k * 0.7 });
+      });
+      text(ctx, 'H. Poincaré, "Sur le problème des trois corps et les équations de la dynamique", Acta Mathematica 13 (1890)', W / 2, H * 0.93,
+        { size: S * 0.021, weight: 400, alpha: 0.55 * smooth((t - C[3] - 1) / 0.8) });
+    },
+  };
+});
+</script>
+</body></html>

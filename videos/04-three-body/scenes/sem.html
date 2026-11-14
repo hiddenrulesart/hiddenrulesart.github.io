@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Sun, Earth, Moon</title></head>
+<body>
+<script src="../../../lib/scene.js"></script>
+<script src="../../../pieces/three-body/sim.js"></script>
+<script src="sky.js"></script>
+<script>
+// The piece's Sun–Earth–Moon system (masses 1, 0.01, 0.0001; not to scale). Left: the whole system.
+// Right (insetAt): a window that follows the Earth, magnified, showing the Moon's own orbit around it.
+// Then (tugAt) the Moon's orbit traced over many months, shifting under the Sun's pull.
+Scene.run(({ ctx, W, H, S, num }) => {
+  const duration = num('duration', 30), insetAt = num('insetAt', 9), tugAt = num('tugAt', 18);
+  const { smooth, text } = Scene;
+  const SEM = [[0, 0, 0, 0, 1], [1, 0, 0, Math.sqrt(1.01), 0.01], [1.05, 0, 0, Math.sqrt(1.01) + Math.sqrt(0.01 / 0.05), 1e-4]];
+  const sim = Sky.system(SEM), tr = Sky.trails(sim, 7), RATE = 0.55;
+  const COL = Sky.COL;
+  const rel = [];   // Moon relative to Earth
+  const rad = i => S * [0.03, 0.009, 0.004][i];
+
+  return {
+    duration,
+    frame(t, dt) {
+      if (t > 0.5) sim.step(RATE * dt);
+      tr.prune();
+      rel.push([sim.x[2] - sim.x[1], sim.y[2] - sim.y[1], sim.time]);
+      while (rel.length && rel[0][2] < sim.time - (t > tugAt ? 30 : 1.6)) rel.shift();
+      ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
+      ctx.fillStyle = '#05050a'; ctx.fillRect(0, 0, W, H);
+      const a = smooth(t / 0.8);
+      // whole system, left of centre
+      ctx.save(); ctx.translate(-W * 0.2, 0);
+      const c2 = { x: 0, y: 0, s: H * 0.36 };
+      ctx.globalCompositeOperation = 'lighter';
+      const X = x => W / 2 + x * c2.s, Y = y => H / 2 - y * c2.s;
+      for (const i of [1, 2]) {
+        const p = tr.pts[i]; if (!p) continue;
+        ctx.strokeStyle = COL[i]; ctx.lineWidth = S * 0.0025; ctx.globalAlpha = a * 0.6; ctx.beginPath();
+        for (let k = 0; k < p.length; k += 3) (k ? ctx.lineTo(X(p[k]), Y(p[k + 1])) : ctx.moveTo(X(p[k]), Y(p[k + 1])));
+        ctx.stroke();
+      }
+      ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
+      Sky.drawBodies(ctx, sim, c2, W, H, S, { alpha: a, rad });
+      text(ctx, 'Sun', X(sim.x[0]), Y(sim.y[0]) + S * 0.075, { size: S * 0.026, weight: 500, alpha: 0.7 * a });
+      text(ctx, 'Earth and Moon', X(sim.x[1]), Y(sim.y[1]) - S * 0.045, { size: S * 0.022, weight: 500, alpha: 0.6 * a });
+      ctx.restore();
+      // inset: following the Earth
+      const ia = smooth((t - insetAt) / 0.8);
+      if (ia > 0) {
+        const ix = W * 0.62, iy = H * 0.14, iw = W * 0.34, ih = H * 0.72, k = Math.min(iw, ih) * 0.38 / 0.05;
+        ctx.globalAlpha = ia; ctx.fillStyle = 'rgba(14,14,24,0.95)'; ctx.strokeStyle = 'rgba(255,255,255,0.18)'; ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.roundRect(ix, iy, iw, ih, S * 0.012); ctx.fill(); ctx.stroke();
+        const cx = ix + iw / 2, cy = iy + ih / 2;
+        ctx.strokeStyle = COL[2]; ctx.lineWidth = S * 0.0025; ctx.globalAlpha = ia * 0.8; ctx.beginPath();
+        rel.forEach(([x, y], j) => (j ? ctx.lineTo(cx + x * k, cy - y * k) : ctx.moveTo(cx + x * k, cy - y * k)));
+        ctx.stroke(); ctx.globalAlpha = ia;
+        ctx.fillStyle = COL[1]; ctx.beginPath(); ctx.arc(cx, cy, S * 0.016, 0, 7); ctx.fill();
+        const m = rel[rel.length - 1];
+        ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.arc(cx + m[0] * k, cy - m[1] * k, S * 0.008, 0, 7); ctx.fill();
+        ctx.globalAlpha = 1;
+        text(ctx, 'following the Earth, magnified', ix + S * 0.025, iy + S * 0.035, { size: S * 0.022, weight: 500, align: 'left', alpha: 0.7 * ia });
+        text(ctx, t > tugAt ? "the Moon's orbit over many months" : "the Moon's orbit around the Earth", ix + iw / 2, iy + ih - S * 0.035,
+          { size: S * 0.024, weight: 500, alpha: 0.8 * ia });
+      }
+      text(ctx, 'not to scale', W * 0.04, H * 0.94, { size: S * 0.02, weight: 400, align: 'left', alpha: 0.4 * a });
+    },
+  };
+});
+</script>
+</body></html>

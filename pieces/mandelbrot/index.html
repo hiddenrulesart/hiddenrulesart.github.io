@@ -356,8 +356,25 @@
   if (P.record) {
     document.body.classList.add('record');
     resize(); renderAll();
+    // optional title card for videos: card1 (small caps line) and card2 (large), fading in at cardAt
+    const card = { at: num('cardAt', -1), l1: q.get('card1') || '', l2: q.get('card2') || '' };
+    const comp = document.createElement('canvas'); comp.width = W; comp.height = H; const cg = comp.getContext('2d');
+    let fr = 0;
     window.__recorder = { ready: true, width: W, height: H, fps: P.fps,
-      frame(type = 'image/png', quality) { if (diving) diveStep(1 / P.fps); renderAll(); return canvas.toDataURL(type, quality); } };
+      frame(type = 'image/png', quality) {
+        if (diving) diveStep(1 / P.fps); renderAll();
+        const t = fr++ / P.fps, k = card.at >= 0 ? Math.max(0, Math.min(1, (t - card.at) / 1)) : 0;
+        if (!k) return canvas.toDataURL(type, quality);
+        const e = k * k * (3 - 2 * k), S = Math.min(W, H), F = 'system-ui, -apple-system, "Helvetica Neue", sans-serif';
+        cg.globalAlpha = 1; cg.drawImage(canvas, 0, 0);
+        cg.fillStyle = `rgba(5,5,10,${0.55 * e})`; cg.fillRect(0, 0, W, H);
+        cg.textAlign = 'center'; cg.textBaseline = 'middle'; cg.fillStyle = '#fff'; cg.shadowColor = 'rgba(0,0,0,0.8)';
+        cg.globalAlpha = 0.65 * e; cg.font = `600 ${Math.round(S * 0.026)}px ${F}`; cg.letterSpacing = `${S * 0.004}px`; cg.shadowBlur = 0;
+        cg.fillText(card.l1, W / 2, H * 0.42);
+        cg.globalAlpha = e; cg.font = `700 ${Math.round(S * 0.07)}px ${F}`; cg.letterSpacing = '0px'; cg.shadowBlur = S * 0.035;
+        cg.fillText(card.l2, W / 2, H * 0.42 + S * 0.075); cg.shadowBlur = 0;
+        return comp.toDataURL(type, quality);
+      } };
     return;
   }
 

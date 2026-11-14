@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Energy and the time step</title></head>
+<body>
+<script src="../../../lib/scene.js"></script>
+<script src="../../../pieces/three-body/sim.js"></script>
+<script src="sky.js"></script>
+<script>
+// Phase 1 (0..bugAt): energy. The Pythagorean stars (accurate simulation) with a graph of energy of motion,
+// energy stored in gravity, and their total, which stays flat.
+// Phase 2 (bugAt): left, the first version: one fixed step (dt = 0.01, step velocity then position), started at
+// naiveAt; at the first close pass (simulation t ≈ 1.84) its total energy leaves the chart (it peaks at ~26×
+// the starting value). Right (fixAt): the adaptive step, started at fixAt, energy flat, with its step size.
+// Simulation time runs at RATE units per second in phase 2.
+Scene.run(({ ctx, W, H, S, num }) => {
+  const duration = num('duration', 60), bugAt = num('bugAt', 18), naiveAt = num('naiveAt', 22), fixAt = num('fixAt', 45);
+  const { smooth, text } = Scene;
+  const MONO = 'ui-monospace, Menlo, monospace';
+  const RATE = 0.55, RATE1 = 0.75;
+  const CAL = Sky.system(Sky.PYTH), E0 = CAL.energy();   // −12.82
+
+  // phase 1: accurate run with energy history
+  const s1 = Sky.system(Sky.PYTH), tr1 = Sky.trails(s1, 3), h1 = [];
+  const KE = s => { let k = 0; for (let i = 0; i < s.n; i++) k += 0.5 * s.m[i] * (s.vx[i] ** 2 + s.vy[i] ** 2); return k; };
+  // phase 2a: the naive fixed-step version
+  const nv = { n: 3, x: [], y: [], vx: [], vy: [], m: [], time: 0 };
+  { const c = Sky.system(Sky.PYTH); for (let i = 0; i < 3; i++) { nv.x.push(c.x[i]); nv.y.push(c.y[i]); nv.vx.push(0); nv.vy.push(0); nv.m.push(c.m[i]); } }
+  const nvTr = [[], [], []], nvE = [];
+  function nvStep(dt) {
+    const ax = [0, 0, 0], ay = [0, 0, 0];
+    for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) if (i !== j) {
+      const dx = nv.x[j] - nv.x[i], dy = nv.y[j] - nv.y[i], r = Math.hypot(dx, dy);
+      ax[i] += nv.m[j] * dx / r ** 3; ay[i] += nv.m[j] * dy / r ** 3;
+    }
+    for (let i = 0; i < 3; i++) { nv.vx[i] += ax[i] * dt; nv.vy[i] += ay[i] * dt; nv.x[i] += nv.vx[i] * dt; nv.y[i] += nv.vy[i] * dt; nvTr[i].push(nv.x[i], nv.y[i], nv.time + dt); }
+    nv.time += dt;
+  }
+  function nvEnergy() {
+    let E = 0;
+    for (let i = 0; i < 3; i++) { E += 0.5 * nv.m[i] * (nv.vx[i] ** 2 + nv.vy[i] ** 2); for (let j = i + 1; j < 3; j++) E -= nv.m[i] * nv.m[j] / Math.hypot(nv.x[i] - nv.x[j], nv.y[i] - nv.y[j]); }
+    return E;
+  }
+  // phase 2b: adaptive
+  const ad = Sky.system(Sky.PYTH), adTr = Sky.trails(ad, 3), adE = [];
+  let adStep = 0.01;
+
+  function graph(x0, y0, w, h, series, { lo, hi, span, flat = null, label = null, alpha = 1 }) {
+    ctx.save(); ctx.globalAlpha = alpha;
+    ctx.strokeStyle = 'rgba(255,255,255,0.22)'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x0, y0 + h); ctx.lineTo(x0 + w, y0 + h); ctx.stroke();
+    const Y = v => y0 + h - h * (v - lo) / (hi - lo), X = tt => x0 + w * tt / span;
+    if (flat !== null) { ctx.setLineDash([5, 7]); ctx.beginPath(); ctx.moveTo(x0, Y(flat)); ctx.lineTo(x0 + w, Y(flat)); ctx.stroke(); ctx.setLineDash([]); }
+    ctx.beginPath(); ctx.rect(x0, y0 - 2, w + 4, h + 4); ctx.clip();
+    for (const [pts, color, lw] of series) {
+      ctx.strokeStyle = color; ctx.lineWidth = lw; ctx.beginPath();
+      pts.forEach(([tt, v], i) => (i ? ctx.lineTo(X(tt), Y(Math.max(lo - (hi - lo), Math.min(hi + (hi - lo), v)))) : ctx.moveTo(X(tt), Y(v))));
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  return {
+    duration,
+    frame(t, dt) {
+      ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
+      ctx.fillStyle = '#05050a'; ctx.fillRect(0, 0, W, H);
+
+      // ---- phase 1
+      const pA = smooth(t / 0.8) * (1 - smooth((t - bugAt + 0.8) / 0.8));
+      if (pA > 0) {
+        if (t > 0.8) { s1.step(RATE1 * dt); tr1.prune(); const k = KE(s1); h1.push([s1.time, k, s1.energy() - k, s1.energy()]); }
+        const cam = { x: 0.25 * W / (H * 0.1), y: 0, s: H * 0.1 };
+        ctx.save(); ctx.translate(0, -H * 0.04);
+        Sky.drawTrails(ctx, s1, tr1, cam, W, H, S, { alpha: pA });
+        Sky.drawBodies(ctx, s1, cam, W, H, S, { alpha: pA });
+        ctx.restore();
+        const gx = W * 0.5, gy = H * 0.14, gw = W * 0.42, gh = H * 0.62, span = 12;
+        graph(gx, gy, gw, gh, [[h1.map(r => [r[0], r[1]]), '#ffcf6a', S * 0.003], [h1.map(r => [r[0], r[2]]), '#7fb6ff', S * 0.003], [h1.map(r => [r[0], r[3]]), '#ffffff', S * 0.004]],
+          { lo: -60, hi: 50, span, flat: 0, alpha: pA });
+        const ly = gy + gh + S * 0.05;
+        text(ctx, 'energy of motion', gx, ly, { size: S * 0.025, weight: 600, align: 'left', color: '#ffcf6a', alpha: pA });
+        text(ctx, 'energy stored in gravity', gx + gw * 0.36, ly, { size: S * 0.025, weight: 600, align: 'left', color: '#7fb6ff', alpha: pA });
+        text(ctx, 'total', gx + gw * 0.86, ly, { size: S * 0.025, weight: 700, align: 'left', alpha: pA });
+        text(ctx, 'time', gx + gw, gy + gh + S * 0.02, { size: S * 0.02, weight: 400, align: 'right', alpha: 0.45 * pA });
+        text(ctx, 'the total never changes', gx + gw, gy + gh * 0.5 + S * 0.0, { size: S * 0.024, weight: 500, align: 'right', alpha: 0.8 * pA * smooth((t - 8) / 0.8) });
+      }
+
+      // ---- phase 2
+      const pB = smooth((t - bugAt) / 0.8);
+      if (pB > 0) {
+        const halves = [[0.25, 'Same time step everywhere', '#ff9a7a', pB], [0.75, 'Smaller steps during close passes', '#8affc1', smooth((t - fixAt) / 0.8)]];
+        // advance
+        if (t > naiveAt) { const target = (t - naiveAt) * RATE; while (nv.time < target - 1e-9) nvStep(0.01); nvE.push([nv.time, nvEnergy()]); }
+        if (t > fixAt) { const T = RATE * dt, k = ad.step(T); adStep = k ? T / k : adStep; adTr.prune(); adE.push([ad.time, ad.energy()]); }
+        halves.forEach(([cx, title, color, a], side) => {
+          if (a <= 0) return;
+          text(ctx, title, W * cx, H * 0.07, { size: S * 0.03, weight: 600, color, alpha: a });
+          const cam = { x: -(cx - 0.5) * W / (H * 0.075), y: -0.3, s: H * 0.075 };
+          ctx.save(); ctx.beginPath(); ctx.rect(side ? W / 2 : 0, H * 0.11, W / 2, H * 0.5); ctx.clip();
+          if (side === 0) {
+            // trails for the fixed-step version
+            const X = x => W / 2 + (x - cam.x) * cam.s, Y = y => H / 2 - (y - cam.y) * cam.s;
+            ctx.globalCompositeOperation = 'lighter';
+            nvTr.forEach((tt, i) => {
+              ctx.strokeStyle = Sky.COL[i]; ctx.lineWidth = S * 0.0032; ctx.globalAlpha = a * 0.9; ctx.beginPath();
+              for (let k = 0; k < tt.length; k += 3) { if (tt[k + 2] < nv.time - 3) continue; const px = X(tt[k]), py = Y(tt[k + 1]); k && tt[k - 1] >= nv.time - 3 ? ctx.lineTo(px, py) : ctx.moveTo(px, py); }
+              ctx.stroke();
+            });
+            ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
+            Sky.drawBodies(ctx, nv, cam, W, H, S, { alpha: a });
+          } else {
+            Sky.drawTrails(ctx, ad, adTr, cam, W, H, S, { alpha: a });
+            Sky.drawBodies(ctx, ad, cam, W, H, S, { alpha: a });
+          }
+          ctx.restore();
+          // energy graph for this side
+          const gx = W * (cx - 0.2), gw = W * 0.4, gy = H * 0.66, gh = H * 0.2;
+          const pts = side ? adE : nvE;
+          graph(gx, gy, gw, gh, [[pts, color, S * 0.004]], { lo: E0 * 1.6, hi: -E0 * 0.6, span: (duration - Math.min(naiveAt, fixAt)) * RATE * 0.8, flat: E0, alpha: a });
+          text(ctx, 'total energy', gx, gy - S * 0.022, { size: S * 0.022, weight: 500, align: 'left', alpha: 0.6 * a });
+          text(ctx, 'should stay on the dashed line', gx + gw, gy - S * 0.022, { size: S * 0.02, weight: 400, align: 'right', alpha: 0.45 * a });
+          const E = pts.length ? pts[pts.length - 1][1] : E0;
+          const off = side === 0 && E > -E0 * 0.6, pct = Math.abs(E / E0 - 1) * 100;
+          const ps = pct >= 100 ? Math.round(pct).toLocaleString('en-US') : pct >= 1 ? pct.toFixed(1) : pct.toFixed(4);
+          text(ctx, `change from the start:  ${ps}%`, gx + gw / 2, gy + gh + S * 0.04,
+            { size: S * 0.024, weight: 600, font: MONO, color: off ? '#ff9a7a' : '#ffffff', alpha: a * (pts.length ? 1 : 0) });
+          text(ctx, `time step  ${(side ? adStep : 0.01).toFixed(5)}`, W * cx, H * 0.6, { size: S * 0.022, weight: 400, font: MONO, alpha: 0.7 * a });
+        });
+      }
+    },
+  };
+});
+</script>
+</body></html>

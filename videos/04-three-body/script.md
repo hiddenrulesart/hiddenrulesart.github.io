@@ -1,118 +1,108 @@
-# Episode 4: "Newton solved two planets. Nobody has solved three."
+# Episode 4: "Newton solved two bodies. Nobody has solved three."
 
-Season 1 (Chaos), episode 4: the season finale. Follows episode 3's cliffhanger ("chaos was actually
-discovered in the sky. Newton solved two planets. Nobody has ever solved three.").
-Target ~5:30 (~780 words of VO). Status: DRAFT v2 (ready for narration review). No scenes or narration built yet.
-Interactive piece: `pieces/three-body/`.
+Season 1 (Chaos), episode 4: the season finale. Follows episode 3's cliffhanger.
+Status: v3 (2026-11-13): third person, rewritten to explain every idea before using it (episode 3 feedback);
+scenes built in scenes/; narration so far only as a macOS `say` placeholder (ElevenLabs credits ran out).
+Interactive piece: `pieces/three-body/` (hiddenrulesart.github.io/planets).
 
-**Title:** "I programmed three planets. Nobody can predict them."
-Alternatives: "Newton solved two planets. Nobody has solved three." · "The problem that broke Newton (and created chaos)".
-**Thumbnail:** the Pythagorean tangle in white/gold on black, one body streaking off the edge. Text: "3 > 2".
+The narration is in `voice.json` (the source of truth); `build.mjs` derives every scene's timing from it.
 
----
+| Scene | Lines | Visual |
+|---|---|---|
+| hook | hook, hook2 | `scenes/pyth.html` from t = 54: the smallest star thrown out, back, and out for good |
+| gravity | grav1–three | `scenes/gravity.html`: pull arrows, distance doubles (pull ÷ 4), F = G·m₁·m₂/r² labelled term by term, the same ellipse orbit after orbit, a third star breaks it |
+| steps | sim1, sim2, pyth1, pyth2 | `scenes/steps.html`: pull from each star + total, velocity, visible steps; the four-line loop; the 3-4-5 triangle labelled (Burrau 1913), let go |
+| energy | en1, bug1, bug2, fix | `scenes/energy.html`: energy of motion / stored in gravity / total; fixed step vs adaptive, each with a total-energy graph, % change and step size |
+| chaos | chaos1–3 | `scenes/pyth.html` from t = 0, clock keyed to throw-out (58), return (72), final escape (86) |
+| prize | prize1–4 | `scenes/prize.html`: timeline 1885 / 1889 / 1889 / 1890, Acta Mathematica 13 |
+| twin | twin1–3 | `scenes/twin.html`: two copies 1e-9 apart, largest-gap counter |
+| order | ord1–4 | `scenes/order.html`: Lagrange triangle breaking, figure-eight, Butterfly I |
+| sem | sem1, sem2 | `scenes/sem.html`: Sun–Earth–Moon, inset following the Earth |
+| sundman | sund1, sund2 | `scenes/sundman.html`: the series, then 10^8,000,000 terms |
+| site | site | website capture (`scenes/site-choreo.mjs`): taps and throws; banner hiddenrulesart.github.io/planets |
+| recap1–4 | fin1 | ep 1 pendulum burst, Lorenz cloud, logistic dive, Pythagorean (clean renders, no text) |
+| next | fin2 | `pieces/mandelbrot` dive, card "NEXT SEASON · Infinity" |
 
-### 1. Hook (0:00–0:15)
-**VISUAL:** Pythagorean preset at full brightness: three glowing stars tangling, near-misses, a slingshot,
-then one gets flung off-screen. The camera lets it go. Text: "3 stars. 1 law. No formula."
-**VO:** Three stars, pulling on each other with gravity. That's the entire setup. And for more than three
-hundred years, the greatest mathematicians alive have tried to write down what they'll do. Let me show
-you why they couldn't.
+## Narration
 
-### 2. Two bodies (0:15–0:55)
-**VISUAL:** "Your solar system" preset: one star, one planet tracing a clean ellipse, lap after lap, the
-trail drawing over itself perfectly. Equation card: F = G·m₁·m₂ / r². Title card: *Principia*, 1687.
-**VO:** In 1687, Isaac Newton published his law of gravity, and with it he solved two bodies completely.
-A planet around a star moves on an ellipse, the same ellipse, forever. Tell me where it starts and how fast
-it's going, and one formula tells you exactly where it'll be in a million years. So the obvious next
-question was: what about three? Like the Sun, the Earth and the Moon.
+**hook:** Three stars, pulling on each other with gravity. That's the entire setup. Nothing random, and nothing else involved.
 
-### 3. Programming it (0:55–1:35)
-**VISUAL:** Code on screen, highlighted line by line: a loop where every body is pulled toward every other.
-Then the Pythagorean start: masses 3, 4 and 5 at rest on the corners of a 3-4-5 triangle.
-**VO:** Simulating it is easy. Every tiny step, each star gets pulled toward the other two, I nudge its
-speed, then nudge its position. That's the whole program, about ten lines. Here's a classic test from
-1913: three stars with masses three, four and five, sitting still on the corners of a three-four-five
-triangle. Let go, and...
+**hook2:** For more than three hundred years, mathematicians have tried to write down a formula for what three bodies like these will do. Nobody has ever found one that works. This is the three-body problem.
 
-### 4. The bug (1:35–2:15)
-**VISUAL:** Naive fixed-step version. Two stars swing in for their first close pass and are launched off
-at absurd speed. An "energy" meter that should stay flat spikes off the chart: "×100". Then the same start
-with the adaptive step: the stars swing past each other cleanly and the meter stays flat. Overlay: step size
-shrinking near the close pass ("tiny steps here").
-**VO:** ...my first version broke in under two seconds. Two stars came close, and got launched away
-at impossible speeds. The total energy, which physics says can never change, jumped about a hundred times
-over. My code had created energy out of nothing. The problem: when two stars pass very close, gravity changes
-so fast that even a tiny step overshoots. The fix is to slow down time exactly when it matters: tiny steps
-during close encounters, big steps when nothing's happening. Now energy holds to a few hundredths of a
-percent. And watch what the stars really do.
+**grav1:** Start with the rule itself. In 1687, Isaac Newton published his law of gravity. Every two objects pull on each other. The pull is stronger when the objects are heavier, and weaker when they're farther apart. Twice as far away, and the pull drops to a quarter.
 
-### 5. Chaos (2:15–2:50)
-**VISUAL:** Pythagorean continues, sped up: loops, near-misses, a body thrown out and pulled back.
-Around t≈60–70, the mass-3 star is ejected and the other two leave together as a pair, spinning around
-each other.
-**VO:** No ellipse. No pattern that ever repeats. Every orbit changes every other orbit, all the time. A
-near miss, a slingshot, one gets thrown out... and dragged back in. This goes on for a long time, until
-finally the smallest star is thrown out for good, and the other two leave together as a pair. Nothing about
-the starting picture tells you that's how it ends. You only find out by running it.
+**grav2:** Written as math: the force between them equals a fixed number, G, times the two masses, divided by the distance between them, squared.
 
-### 6. The prize and the mistake (2:50–3:45)
-**VISUAL:** An 1880s newspaper-style card: King Oscar II, a prize, a gold medal. Poincaré's portrait
-(public domain). A printed journal issue gets stamped "RECALLED". Then a tangle diagram: two curves crossing
-each other infinitely often.
-**VO:** In 1885, King Oscar the Second of Sweden announced a prize for anyone who could crack it. The winner
-was the French mathematician Henri Poincaré. He didn't solve it, but his paper was so brilliant that he won
-anyway. Then, while it was being printed, an editor found a gap. Poincaré went back to fix it, and found
-something nobody expected. Some orbits are so tangled that the slightest change in where you start sends
-you somewhere completely different. He'd discovered chaos, seventy years before Lorenz. The journal had
-to be recalled and reprinted, and Poincaré paid for it himself: more than the prize money he'd won.
+**ell1:** With just two bodies, Newton could solve this completely. A planet going around a star moves on an ellipse, a stretched circle, and it traces the same ellipse forever.
 
-### 7. The butterfly effect, in space (3:45–4:15)
-**VISUAL:** "Butterfly effect" preset: a faint twin universe, offset by a billionth. They overlap perfectly,
-then peel apart. Counter: "difference: 0.000000001 → 0.01 → 2.3".
-**VO:** Here are two copies of the same three stars. In one, I moved a single star by one billionth. For a
-while you can't tell them apart. Then the gap grows, and grows, until they're two completely different
-universes. That's why there's no simple formula: the answer depends on digits nobody can ever measure.
+**ell2:** So there's a formula. Give it where the planet starts and how fast it's moving, and it says exactly where the planet will be at any moment, even a million years from now.
 
-### 8. Islands of order (4:15–4:55)
-**VISUAL:** The figure-eight preset, slow and hypnotic. Then the Lagrange triangle spinning rigidly until it
-falls apart. Then "Butterfly I" and a montage grid of periodic orbits.
-**VO:** But chaos isn't the whole story. Some starting points dance forever. In 1772, Lagrange found three
-bodies riding a spinning triangle. With equal masses it's fragile, and the tiniest rounding error tears it
-apart. Here's a stranger one: three equal stars chasing each other around a figure eight, found by computer
-in 1993 and proven in 2000. In 2013, two physicists in Belgrade found thirteen new families of these, with
-names like "the butterfly" and "the moth". People are still finding more.
+**three:** The obvious next question was three bodies, like the Sun, the Earth and the Moon. Add a third star of similar size, and the clean ellipse is gone.
 
-### 9. So how do we predict eclipses? (4:55–5:10)
-**VISUAL:** Sun–Earth–Moon preset: the Moon looping neatly around the Earth as both circle the Sun.
-**VO:** And if three bodies are chaotic, how do we predict eclipses centuries ahead? Because our Sun is so
-much heavier than everything else that it's almost two separate two-body problems. Almost. Newton said the
-Moon was the only problem that ever gave him a headache.
+**sim1:** Without a formula, the only option is to simulate. Cut time into tiny steps. At each step, add up the pull on every star from all the others.
 
-### 10. The useless formula (5:10–5:25)
-**VISUAL:** An endless scroll of tiny equation terms filling the screen, getting smaller and smaller.
-**VO:** Here's the strangest twist. In 1912, Karl Sundman actually found a formula: an infinite series that
-solves three bodies. It's just useless. For a useful answer, you'd need a number of terms with
-millions of digits. The solution exists. You can never use it.
+**sim2:** Those pulls change each star's velocity, its speed and direction, by a little. Then each star moves a little, along its new velocity. Repeat that thousands of times, and the stars trace out their paths.
 
-### 11. Website (5:25–5:40)
-**VISUAL:** Website capture: tapping to drop planets, dragging to throw one (arrow + dotted predicted path),
-then the solar system falling apart. URL on screen: **hiddenrulesart.github.io/planets** (also first line of the description).
-**VO:** You can play with it, link in the description. Tap to drop a planet, drag to throw one, and try to
-build a solar system that doesn't fall apart. It's harder than it looks.
+**pyth1:** Here's a classic test, first posed in 1913. Three stars, with masses three, four and five, sit perfectly still at the corners of a right triangle whose sides are three, four and five long. Each star sits opposite the side with its own number.
 
-### 12. Season finale and cliffhanger (5:40–6:05)
-**VISUAL:** Recap montage: rainbow pendulums, the Lorenz butterfly, the bifurcation zoom, the three-body
-tangle. Cut to black, then the first frames of a Mandelbrot zoom.
-**VO:** Pendulums, weather, rabbits, planets. Every time we looked closely at chaos, we found the same thing:
-not noise, but structure hiding inside itself, again and again, forever. Next season, we follow that
-structure all the way down, into a shape made from one line of math that you could zoom into for the rest
-of your life and never see the same thing twice.
+**pyth2:** Nothing is moving yet. Let go, and gravity starts pulling them together.
 
----
+**en1:** But there's a catch, and a simple way to check for it: energy. Moving stars carry energy of motion. Stars that are far apart store energy in gravity, which turns into speed as they fall toward each other. The two kinds trade back and forth, but the total can never change.
+
+**bug1:** The first version of this simulation used the same small time step everywhere. Watch the total energy. In under two seconds, two stars pass very close to each other, and the energy, which should stay perfectly flat, shoots off the chart, to more than ten times its size. The stars are launched away at impossible speeds. The simulation has created energy out of nothing.
+
+**bug2:** The problem is the close pass. When two stars nearly touch, the pull between them changes enormously in a tiny fraction of a second, and a fixed step can't keep up. Each step throws the stars a little too far, and a little too fast.
+
+**fix:** The fix is to slow down time exactly when it matters: tiny steps during close passes, larger steps when nothing much is happening. Now the total energy holds steady, to within a few thousandths of a percent.
+
+**chaos1:** And here is what the three stars really do. There's no ellipse, and no pattern that repeats. Every orbit keeps changing every other orbit.
+
+**chaos2:** Near misses. Slingshots. The smallest star is thrown out, then dragged back in.
+
+**chaos3:** Finally, after a long dance, the smallest star is flung away for good, and the other two head off the other way, circling each other as a pair. Nothing in the starting picture hints that this is how it ends. The only way to find out was to run it.
+
+**prize1:** Mathematicians kept looking for a formula anyway. In 1885, King Oscar the Second of Sweden offered a prize for solving the motion of many bodies under gravity.
+
+**prize2:** It went to the French mathematician Henri Poincaré. He hadn't solved the problem, but his paper was so deep that the judges gave him the prize anyway.
+
+**prize3:** Then, while the paper was being printed, an editor found a mistake. Poincaré went back to fix it, and found something nobody expected: some orbits are so sensitive that the tiniest change in where they start sends them somewhere completely different.
+
+**prize4:** He had found chaos, seventy years before Edward Lorenz and the weather. The printed copies were recalled and destroyed, and Poincaré paid for the new printing himself. It cost him more than the prize.
+
+**twin1:** Here is that sensitivity in a simulation. Two copies of the same three stars. In the second copy, drawn in white outlines, one star starts out shifted by one billionth of a unit, while the stars themselves are a few units apart.
+
+**twin2:** For a long time, the two copies can't be told apart. The counter shows the largest gap between them. One billionth. Then a millionth. A thousandth. And then they split into two completely different futures.
+
+**twin3:** That's why no useful formula can exist. The answer depends on digits that nobody could ever measure.
+
+**ord1:** But chaos isn't the whole story. A few special starting points repeat forever. In 1772, Joseph-Louis Lagrange found that three stars at the corners of an equilateral triangle can spin around together, keeping their shape.
+
+**ord2:** With three equal stars, though, the triangle is fragile. The tiniest error, even the rounding inside a computer, grows until it tears the triangle apart.
+
+**ord3:** Here's a stranger one: three equal stars chasing each other around a figure eight, all on the same path. It was found by computer in 1993, and proven to exist in 2000.
+
+**ord4:** In 2013, two physicists in Belgrade found thirteen new families of repeating orbits, with names like the butterfly and the moth. Computer searches are still finding more.
+
+**sem1:** So if three bodies are chaotic, how can eclipses be predicted centuries ahead? Because the Sun is so much heavier than the Earth and the Moon, and so far away, that the problem nearly splits into two simpler ones: the Earth around the Sun, and the Moon around the Earth.
+
+**sem2:** Nearly, but not quite. The Sun keeps tugging on the Moon's orbit. Newton reportedly said the Moon was the only problem that ever gave him a headache.
+
+**sund1:** And here is the strangest twist. In 1912, the Finnish mathematician Karl Sundman did find a formula for three bodies: an infinite sum, where each term adds a smaller correction, and adding up enough terms gives the answer as precisely as anyone wants.
+
+**sund2:** The catch: for an answer accurate enough for astronomers, the sum needs about ten to the power of eight million terms. That's a number with eight million digits. The formula exists, but no computer could ever use it.
+
+**site:** You can try it yourself. The link is in the description. Tap to drop a planet, drag to throw one, and try to build a solar system that doesn't fall apart. It's harder than it looks.
+
+**fin1:** Pendulums, weather, rabbits, and now planets. Each time, a short, exact rule produced behavior that nobody can predict. And each time, the chaos wasn't just noise. It had structure, repeating inside itself.
+
+**fin2:** Next season follows that structure all the way down, into a shape made from one line of math, which can be zoomed into forever without ever reaching the bottom.
 
 ## Facts to double-check before recording
 - Newton, *Philosophiæ Naturalis Principia Mathematica* (1687): the two-body problem reduces to Kepler orbits (conic sections).
-- **Bug scene (measured in this repo, 2026-11-10):** Pythagorean start, naive fixed step, no softening. Energy error passes 50% at the first close encounter (t ≈ 1.9) for both dt = 0.01 and dt = 0.001, peaking at ~60–130× the starting energy, with two bodies leaving at 12–21 units/s. The piece's adaptive leapfrog keeps the drift ~4e-4 through the ejection. VO says "about a hundred times" and "a few hundredths of a percent"; both are OK. (Script used: Euler and symplectic Euler, `dt` fixed, T = 70.)
+- **Bug scene (re-measured 2026-11-13):** Pythagorean start, fixed step dt = 0.01 (velocity then position), no softening: the energy error passes 50% at t = 1.84 and peaks at ~26× the starting energy (59× with dt = 0.001). On screen it settles at ~13× (1,344%) after the pass. VO: "more than ten times its size". Adaptive leapfrog with eta = 0.002: drift 4e-5 (0.004%) through the ejection. VO: "a few thousandths of a percent".
+- **Step-size accuracy (2026-11-13):** with the piece's old eta = 0.015 the energy drifted 1.3% and the *wrong* body was ejected. eta = 0.002 and 0.0007 both give the published outcome (mass 3 thrown out ~t 60, back ~72, out for good after ~86; 4 and 5 leave as a pair 0.9 apart). The piece now defaults to 0.002.
+- **Twin universes (measured):** "Butterfly effect" preset, 1e-9 offset: gap ~1e-6 by t ≈ 7, ~1e-3 by t ≈ 14, ~0.6 by t ≈ 18.
+- **Lagrange triangle (measured):** three equal masses, side √3: the side length is off by 5% at t ≈ 63 (period 8.27), from rounding alone.
 - Pythagorean problem: Burrau (1913); masses 3, 4, 5 at rest at the corners of a 3-4-5 right triangle (each mass opposite the side of the same length). Szebehely & Peters (1967) integrated it numerically: the mass-3 body is ejected and 4 and 5 leave as a binary. The piece reproduces this (escape around t ≈ 60–70). "The smallest star is thrown out" is correct (mass 3).
 - Oscar II prize: announced 1885 in *Acta Mathematica*, deadline 1 June 1888, awarded to Poincaré on 21 January 1889 (the King's 60th birthday). The error was spotted while the memoir was being edited (Lars Edvard Phragmén's queries, 1889). The printed issue was recalled and destroyed; the corrected memoir appeared in *Acta Mathematica* 13 (1890). Poincaré paid for the reprint, about 3,585 crowns versus the 2,500-crown prize (June Barrow-Green, *Poincaré and the Three Body Problem*, 1997). Check the numbers before putting them on screen; the VO only says "more than the prize money".
 - "Seventy years before Lorenz": 1889/1890 → 1961/1963. OK.
@@ -124,13 +114,3 @@ of your life and never see the same thing twice.
 - Sundman (1912, *Acta Mathematica* 36): convergent series for the three-body problem (non-zero angular momentum). Commonly quoted: about 10^8,000,000 terms needed for astronomical accuracy (Beloriszky, 1930). "A number of terms with millions of digits" matches.
 - Netflix/Liu Cixin: not in the VO; put it in the description ("yes, that three-body problem").
 
-## Visual scenes to build (code), later
-| Scene | Needs |
-|---|---|
-| 1, 3, 5, 7, 8, 9 | `pieces/three-body` record mode (presets `pyth`, `twin`, `fig8`, `lagr`, `bfly`, `sem`; `thick=2` for 4K) |
-| 2 | Two-body ellipse (`preset=star` + one body) with the equation card |
-| 4 | Side-by-side naive vs adaptive Pythagorean with an energy meter (new scene: fixed-step integrator + meter overlay) |
-| 6 | History cards: King Oscar, Poincaré, recalled journal, homoclinic tangle diagram |
-| 10 | Scrolling series terms |
-| 11 | Website capture (tools/capture-page.mjs): tap, drag-throw, presets |
-| 12 | Recap montage from episode 1–3 renders + Mandelbrot teaser (`pieces/mandelbrot` with `dive=1`) |

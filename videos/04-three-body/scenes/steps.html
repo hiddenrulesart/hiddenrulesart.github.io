@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Simulating three bodies</title></head>
+<body>
+<script src="../../../lib/scene.js"></script>
+<script src="../../../pieces/three-body/sim.js"></script>
+<script src="sky.js"></script>
+<script>
+// How the simulation works, then the Pythagorean starting position.
+// Phase 1: three stars; each star's pull from each other star (thin, in the other star's colour) and the
+// total pull (white). The system advances in visible steps, leaving a dot per step, while a four-line
+// loop is highlighted line by line (l1..l4). Phase 2 (setupAt): the 3-4-5 triangle with side lengths and
+// masses labelled; at goAt the stars are let go.
+Scene.run(({ ctx, W, H, S, num }) => {
+  const duration = num('duration', 50), l1 = num('l1', 4), l2 = num('l2', 9), l3 = num('l3', 12), l4 = num('l4', 15),
+    setupAt = num('setupAt', 20), sideAt = num('sideAt', 27), goAt = num('goAt', 40);
+  const { smooth, text } = Scene;
+  const MONO = 'ui-monospace, Menlo, monospace';
+  // phase 1 system: a loose triangle with some initial motion, stepped visibly
+  const demo = Sky.system([[-1.6, -0.6, 0.15, -0.35, 1.2], [1.4, -0.9, 0.1, 0.4, 1], [0.1, 1.5, -0.35, 0, 0.9]]);
+  const STEP = 0.09, EVERY = 0.42, dots = [[], [], []];
+  let stepped = 0;
+  const cam1 = { x: W * 0.14 / (H * 0.2), y: 0.1, s: H * 0.2 }, X1 = x => W / 2 + (x - cam1.x) * cam1.s, Y1 = y => H / 2 - (y - cam1.y) * cam1.s;   // system left of centre
+  // phase 2: the Pythagorean problem
+  const py = Sky.system(Sky.PYTH), tr = Sky.trails(py, 3);
+  const cam2 = { x: 0, y: 0.9, s: H * 0.13 };
+  const P0 = [0, 1, 2].map(i => [py.x[i], py.y[i]]);
+  // arrow scale: the largest total pull at the start is drawn S * 0.13 long
+  let FS0 = 1;
+  { let m = 0; for (let i = 0; i < 3; i++) { let sx = 0, sy = 0; for (const [, fx, fy] of pulls(demo, i)) { sx += fx; sy += fy; } m = Math.max(m, Math.hypot(sx, sy)); } FS0 = S * 0.13 / m; }
+  const LINES = ['Add up the pull on each star', "Change each star's velocity", 'Move each star a tiny step', 'Repeat'];
+
+  function pulls(s, i) {   // force on body i from each other body (G = 1)
+    const out = [];
+    for (let j = 0; j < s.n; j++) if (j !== i) {
+      const dx = s.x[j] - s.x[i], dy = s.y[j] - s.y[i], r = Math.hypot(dx, dy), f = s.m[i] * s.m[j] / (r * r);
+      out.push([j, f * dx / r, f * dy / r]);
+    }
+    return out;
+  }
+
+  return {
+    duration,
+    frame(t, dt) {
+      ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
+      ctx.fillStyle = '#05050a'; ctx.fillRect(0, 0, W, H);
+      const pA = smooth(t / 0.8) * (1 - smooth((t - setupAt + 0.8) / 0.8));
+      if (pA > 0) {
+        // step the demo system once every EVERY seconds once the loop has been described
+        while (t > l2 && stepped < Math.floor((t - l2) / EVERY) + 1) {
+          for (let i = 0; i < 3; i++) dots[i].push([demo.x[i], demo.y[i]]);
+          demo.step(STEP); stepped++;
+        }
+        ctx.globalAlpha = pA;
+        dots.forEach((d, i) => { ctx.fillStyle = Sky.COL[i]; for (const [x, y] of d) { ctx.beginPath(); ctx.arc(X1(x), Y1(y), S * 0.0045, 0, 7); ctx.fill(); } });
+        ctx.globalAlpha = 1;
+        const fa = pA * smooth((t - l1) / 0.8), FS = FS0;
+        for (let i = 0; i < 3; i++) {
+          const x = X1(demo.x[i]), y = Y1(demo.y[i]); let sx = 0, sy = 0;
+          for (const [j, fx, fy] of pulls(demo, i)) { Sky.arrow(ctx, x, y, fx * FS, -fy * FS, Sky.COL[j], S * 0.003, fa * 0.8); sx += fx; sy += fy; }
+          Sky.arrow(ctx, x, y, sx * FS, -sy * FS, '#ffffff', S * 0.0045, fa * smooth((t - l1 - 1.5) / 0.6));
+          // velocity (dashed look: thinner, grey) once velocities are mentioned
+          const va = pA * smooth((t - l2) / 0.6);
+          Sky.arrow(ctx, x, y, demo.vx[i] * S * 0.25, -demo.vy[i] * S * 0.25, 'rgba(200,200,215,0.9)', S * 0.0025, va * 0.7);
+        }
+        Sky.drawBodies(ctx, demo, cam1, W, H, S, { alpha: pA, rad: (i, m) => S * 0.012 * Math.sqrt(m) });
+        // the loop
+        const lx = W * 0.66, ly = H * 0.36, cues = [l1, l2, l3, l4];
+        const cur = cues.reduce((k, c, i) => (t >= c ? i : k), -1);
+        LINES.forEach((s, i) => {
+          const a = pA * smooth((t - cues[i]) / 0.5);
+          const on = i === cur || (cur === 3);
+          text(ctx, String(i + 1), lx, ly + i * S * 0.075, { size: S * 0.032, weight: 600, align: 'left', font: MONO, alpha: a * (on ? 1 : 0.45), color: '#ffcf6a' });
+          text(ctx, s, lx + S * 0.05, ly + i * S * 0.075, { size: S * 0.032, weight: 500, align: 'left', alpha: a * (on ? 1 : 0.45) });
+        });
+        text(ctx, 'pull from each other star', lx, ly + 4.4 * S * 0.075, { size: S * 0.022, weight: 400, align: 'left', alpha: fa * 0.6 });
+        text(ctx, 'total pull', lx, ly + 4.9 * S * 0.075, { size: S * 0.022, weight: 600, align: 'left', alpha: fa * 0.8 * smooth((t - l1 - 1.5) / 0.6) });
+        text(ctx, 'velocity', lx, ly + 5.4 * S * 0.075, { size: S * 0.022, weight: 400, align: 'left', alpha: pA * 0.6 * smooth((t - l2) / 0.6), color: '#c8c8d7' });
+      }
+
+      // phase 2: the Pythagorean starting position
+      const pB = smooth((t - setupAt) / 0.8);
+      if (pB > 0) {
+        if (t > goAt) { py.step(Math.min(0.6, 0.1 + 0.35 * (t - goAt)) * dt); tr.prune(); }
+        const X = x => W / 2 + (x - cam2.x) * cam2.s, Y = y => H / 2 - (y - cam2.y) * cam2.s;
+        const triA = pB * (1 - smooth((t - goAt) / 0.8));
+        // triangle sides, each labelled with its length, opposite the star of the same mass
+        const SIDES = [[1, 2, '3'], [0, 2, '4'], [0, 1, '5']];
+        ctx.globalAlpha = triA * 0.5; ctx.strokeStyle = '#ffffff'; ctx.lineWidth = S * 0.0022;
+        ctx.beginPath(); P0.forEach(([x, y], i) => (i ? ctx.lineTo(X(x), Y(y)) : ctx.moveTo(X(x), Y(y)))); ctx.closePath(); ctx.stroke();
+        ctx.globalAlpha = 1;
+        const cx = (P0[0][0] + P0[1][0] + P0[2][0]) / 3, cy = (P0[0][1] + P0[1][1] + P0[2][1]) / 3;
+        SIDES.forEach(([a, b, L], k) => {
+          const mx = (P0[a][0] + P0[b][0]) / 2, my = (P0[a][1] + P0[b][1]) / 2, ox = mx - cx, oy = my - cy, d = Math.hypot(ox, oy);
+          text(ctx, L, X(mx + ox / d * 0.32), Y(my + oy / d * 0.32), { size: S * 0.036, weight: 400, font: '"Times New Roman", serif', alpha: triA * smooth((t - sideAt - k * 0.5) / 0.5) * 0.85 });
+        });
+        ctx.globalAlpha = pB;
+        Sky.drawTrails(ctx, py, tr, cam2, W, H, S, { alpha: pB });
+        Sky.drawBodies(ctx, py, cam2, W, H, S, { alpha: pB });
+        ctx.globalAlpha = 1;
+        [0, 1, 2].forEach(i => {
+          const ox = P0[i][0] - cx, oy = P0[i][1] - cy, d = Math.hypot(ox, oy);
+          text(ctx, `mass ${py.m[i]}`, X(P0[i][0] + ox / d * 0.55), Y(P0[i][1] + oy / d * 0.55), { size: S * 0.028, weight: 600, color: Sky.COL[i], alpha: triA });
+        });
+        text(ctx, 'The Pythagorean problem  ·  C. Burrau, 1913', W / 2, H * 0.93, { size: S * 0.026, weight: 500, alpha: 0.75 * triA });
+        text(ctx, 'all three at rest', W / 2, H * 0.07, { size: S * 0.028, weight: 500, alpha: 0.7 * triA * smooth((t - sideAt - 2) / 0.6) });
+      }
+    },
+  };
+});
+</script>
+</body></html>

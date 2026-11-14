@@ -6,7 +6,7 @@
   function createSim() {
     const s = {
       x: [], y: [], vx: [], vy: [], m: [], ax: [], ay: [],
-      G: 1, eps: 0.01, eta: 0.015, time: 0, maxSub: 40000,
+      G: 1, eps: 0.01, eta: 0.002, time: 0, maxSub: 40000,   // eta 0.002: the Pythagorean problem ends as published (mass 3 ejected); 0.015 got it wrong
       get n() { return this.m.length; },
       add(x, y, vx, vy, m) {
         s.x.push(x); s.y.push(y); s.vx.push(vx); s.vy.push(vy); s.m.push(m); s.ax.push(0); s.ay.push(0);

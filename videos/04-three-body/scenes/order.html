@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Islands of order</title></head>
+<body>
+<script src="../../../lib/scene.js"></script>
+<script src="../../../pieces/three-body/sim.js"></script>
+<script src="sky.js"></script>
+<script>
+// Periodic orbits. (1) Lagrange's equilateral triangle with three equal masses: it spins rigidly, then
+// numerical rounding grows until it breaks (measured: side length off by 5% at t ≈ 63). The clock is keyed
+// so the break lands at brkAt. (2) The figure-eight (figAt). (3) Butterfly I (bflyAt).
+Scene.run(({ ctx, W, H, S, num }) => {
+  const duration = num('duration', 60), brkAt = num('brkAt', 22), figAt = num('figAt', 28), bflyAt = num('bflyAt', 44);
+  const { smooth, text } = Scene;
+  const st = Math.sqrt(3), w = Math.sqrt(3 / st ** 3), LAG = [];
+  for (let k = 0; k < 3; k++) { const a = k * 2 * Math.PI / 3 + Math.PI / 2; LAG.push([Math.cos(a), Math.sin(a), -w * Math.sin(a), w * Math.cos(a), 1]); }
+  const v3 = [-0.93240737, -0.86473146];
+  const FIG = [[0.97000436, -0.24308753, -v3[0] / 2, -v3[1] / 2, 1], [-0.97000436, 0.24308753, -v3[0] / 2, -v3[1] / 2, 1], [0, 0, v3[0], v3[1], 1]];
+  const BFLY = [[-1, 0, 0.30689, 0.12551, 1], [1, 0, 0.30689, 0.12551, 1], [0, 0, -0.61378, -0.25102, 1]];
+  const P = [
+    { sim: Sky.system(LAG), at: 0, end: figAt, clock: Sky.clock([[0.6, 0], [brkAt, 63], [figAt, 72]]), life: 2.5, scale: H * 0.26,
+      name: 'Lagrange triangle', who: 'J.-L. Lagrange, 1772' },
+    { sim: Sky.system(FIG), at: figAt, end: bflyAt, rate: 1.1, life: 6.33, scale: H * 0.36, name: 'Figure-eight', who: 'found by C. Moore, 1993  ·  proven by A. Chenciner and R. Montgomery, 2000' },
+    { sim: Sky.system(BFLY), at: bflyAt, end: duration + 1, rate: 1.1, life: 6.3, scale: H * 0.38, name: 'Butterfly I', who: 'M. Šuvakov and V. Dmitrašinović, 2013' },
+  ];
+  P.forEach(p => { p.tr = Sky.trails(p.sim, p.life); p.cam = { x: 0, y: 0, s: p.scale }; });
+
+  return {
+    duration,
+    frame(t, dt) {
+      ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
+      ctx.fillStyle = '#05050a'; ctx.fillRect(0, 0, W, H);
+      P.forEach((p, k) => {
+        const a = smooth((t - p.at) / 0.8) * (1 - smooth((t - p.end + 0.8) / 0.8));
+        if (t < p.at || t > p.end) return;
+        const target = p.clock ? p.clock(t) : (t - p.at) * p.rate;
+        if (target > p.sim.time) p.sim.step(target - p.sim.time);
+        p.tr.prune();
+        if (k === 0) {   // keep a broken triangle in view
+          Sky.follow(p.cam, p.sim, W, H, dt, { minR: 1.3, margin: 1.3, rate: 0.7 });
+          // the triangle's edges, while it holds together
+          const s = p.sim, X = x => W / 2 + (x - p.cam.x) * p.cam.s, Y = y => H / 2 - (y - p.cam.y) * p.cam.s;
+          ctx.globalAlpha = a * 0.3 * (1 - smooth((t - brkAt + 1.5) / 1.5)); ctx.strokeStyle = '#fff'; ctx.lineWidth = S * 0.002;
+          ctx.beginPath(); for (let i = 0; i < 3; i++) (i ? ctx.lineTo(X(s.x[i]), Y(s.y[i])) : ctx.moveTo(X(s.x[i]), Y(s.y[i]))); ctx.closePath(); ctx.stroke();
+          ctx.globalAlpha = 1;
+        }
+        Sky.drawTrails(ctx, p.sim, p.tr, p.cam, W, H, S, { alpha: a });
+        Sky.drawBodies(ctx, p.sim, p.cam, W, H, S, { alpha: a });
+        text(ctx, p.name, W * 0.05, H * 0.08, { size: S * 0.036, weight: 600, align: 'left', alpha: a });
+        text(ctx, p.who, W * 0.05, H * 0.08 + S * 0.05, { size: S * 0.024, weight: 400, align: 'left', alpha: a * 0.65 });
+        if (k === 0) text(ctx, 'three equal masses', W * 0.05, H * 0.08 + S * 0.09, { size: S * 0.024, weight: 400, align: 'left', alpha: a * 0.65 });
+      });
+    },
+  };
+});
+</script>
+</body></html>

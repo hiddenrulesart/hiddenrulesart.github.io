@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Pythagorean three-body problem</title></head>
+<body>
+<script src="../../../lib/scene.js"></script>
+<script src="../../../pieces/three-body/sim.js"></script>
+<script src="sky.js"></script>
+<script>
+// The Pythagorean problem (Burrau 1913): masses 3, 4, 5 at rest on a 3-4-5 triangle. With the piece's
+// adaptive leapfrog (eta 0.002) it ends as Szebehely & Peters (1967) found: the mass-3 star is thrown out
+// around t = 60, falls back around t = 72, and leaves for good after t = 86 while 4 and 5 leave as a pair.
+// The simulation clock is piecewise linear, keyed to the narration:
+//   k0..k3 = video times at which the simulation reaches s0..s3 (defaults: the chaos section).
+// from: simulation time at the first frame (the hook starts late, at the first ejection).
+Scene.run(({ ctx, W, H, S, num }) => {
+  const duration = num('duration', 40), from = num('from', 0), legend = num('legend', 1);
+  const keys = [[0.6, from]];
+  for (let i = 0; i < 4; i++) if (num('k' + i, -1) >= 0) keys.push([num('k' + i, 0), num('s' + i, 0)]);
+  if (keys.length === 1) keys.push([duration, from + duration * 2.3]);
+  const T = Sky.clock(keys);
+  const { smooth, text } = Scene;
+  const sim = Sky.system(Sky.PYTH);
+  if (from > 0) sim.step(from);
+  const tr = Sky.trails(sim, num('life', 7));
+  const cam = { s: 0 };
+
+  return {
+    duration,
+    frame(t, dt) {
+      const target = T(t);
+      if (target > sim.time) sim.step(target - sim.time);
+      tr.prune();
+      Sky.follow(cam, sim, W, H, dt, { minR: 2.4, margin: 1.2, rate: 0.9 });
+      ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
+      ctx.fillStyle = '#05050a'; ctx.fillRect(0, 0, W, H);
+      const a = smooth(t / 0.6);
+      ctx.globalAlpha = a;
+      Sky.drawTrails(ctx, sim, tr, cam, W, H, S, { alpha: a });
+      Sky.drawBodies(ctx, sim, cam, W, H, S, { alpha: a });
+      ctx.globalAlpha = 1;
+      if (legend) {   // which star is which
+        const la = 0.75 * smooth((t - 1) / 0.8);
+        text(ctx, 'MASS', W * 0.05, H * 0.86, { size: S * 0.018, weight: 600, align: 'left', alpha: la * 0.6, tracking: S * 0.003 });
+        [3, 4, 5].forEach((m, i) => {
+          const x = W * 0.05 + i * S * 0.075, y = H * 0.91;
+          ctx.globalAlpha = la; ctx.fillStyle = Sky.COL[i]; ctx.beginPath(); ctx.arc(x + S * 0.008, y, S * 0.008, 0, 7); ctx.fill(); ctx.globalAlpha = 1;
+          text(ctx, String(m), x + S * 0.028, y, { size: S * 0.026, weight: 600, align: 'left', alpha: la });
+        });
+      }
+    },
+  };
+});
+</script>
+</body></html>

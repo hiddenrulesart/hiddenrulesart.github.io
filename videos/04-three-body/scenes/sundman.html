@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Sundman's series</title></head>
+<body>
+<script src="../../../lib/scene.js"></script>
+<script>
+// Sundman's convergent series (1912). Phase 1 (seriesAt): the series written out, terms flowing in, each
+// smaller than the last. Phase 2 (countAt): "about 10^8,000,000 terms", with a wall of zeros streaming past
+// to show a number with eight million digits.
+Scene.run(({ ctx, W, H, S, num }) => {
+  const duration = num('duration', 30), seriesAt = num('seriesAt', 3), countAt = num('countAt', 16);
+  const { smooth, text } = Scene;
+  const SERIF = '"Times New Roman", Georgia, serif', MONO = 'ui-monospace, Menlo, monospace';
+  // a term as pieces [text, scale, raise]: a, the index as a subscript, σ, the power as a superscript
+  const term = n => [['a', 1, 0], [String(n), 0.55, -0.22], ...(n ? [[' σ', 1, 0], ...(n > 1 ? [[String(n), 0.55, 0.3]] : [])] : [])];
+
+  return {
+    duration,
+    frame(t) {
+      ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
+      ctx.fillStyle = '#05050a'; ctx.fillRect(0, 0, W, H);
+      const p1 = smooth((t - seriesAt + 0.6) / 0.8) * (1 - smooth((t - countAt) / 0.6));
+      if (p1 > 0) {
+        text(ctx, 'K. F. Sundman, 1912', W / 2, H * 0.1, { size: S * 0.03, weight: 500, alpha: 0.7 * p1 });
+        // the series: terms appear one by one, flowing left to right and down, each a little smaller
+        const shown = Math.max(0, (t - seriesAt) * 2.6);
+        let x = W * 0.08, y = H * 0.3, size = S * 0.06;
+        text(ctx, 'position  =', x, y, { size, weight: 400, font: SERIF, align: 'left', alpha: p1 });
+        ctx.font = `400 ${Math.round(size)}px ${SERIF}`; x += ctx.measureText('position  =').width + size * 0.4;
+        const width = (parts, sz) => { let w = 0; for (const [q, k] of parts) { ctx.font = `400 ${Math.round(sz * k)}px ${SERIF}`; w += ctx.measureText(q).width; } return w; };
+        for (let n = 0; n < 160 && n < shown; n++) {
+          const parts = [...(n ? [['+  ', 1, 0]] : []), ...term(n)];
+          let w = width(parts, size);
+          if (x + w > W * 0.93) {   // next line, a little smaller
+            x = W * 0.08; y += size * 1.5; size *= 0.86; if (y > H * 0.9) break;
+            w = width(parts, size);
+          }
+          const a = p1 * Math.min(1, shown - n) * (0.35 + 0.65 * Math.exp(-n / 30));
+          for (const [q, k, r] of parts) {
+            text(ctx, q, x, y - r * size, { size: size * k, weight: 400, font: SERIF, align: 'left', alpha: a });
+            ctx.font = `400 ${Math.round(size * k)}px ${SERIF}`; x += ctx.measureText(q).width;
+          }
+          x += size * 0.45;
+        }
+        text(ctx, 'an infinite sum: each term a smaller correction', W / 2, H * 0.2, { size: S * 0.026, weight: 400, alpha: 0.6 * p1 * smooth((t - seriesAt - 2) / 0.8) });
+      }
+      const p2 = smooth((t - countAt) / 0.8);
+      if (p2 > 0) {
+        // a wall of zeros: the number of terms needed, written out, scrolling
+        ctx.save(); ctx.globalAlpha = 0.22 * p2; ctx.fillStyle = '#ffcf6a';
+        const fs = S * 0.022; ctx.font = `400 ${Math.round(fs)}px ${MONO}`; ctx.textBaseline = 'middle';
+        const row = '0'.repeat(Math.ceil(W / (fs * 0.6)) + 2), off = (t - countAt) * fs * 9;
+        for (let r = -1; r < H / (fs * 1.3) + 1; r++) ctx.fillText(r === -1 && off < fs ? '1' + row : row, -((off + r * fs * 7) % (fs * 0.6 * 10)), r * fs * 1.3 - (off % (fs * 1.3)));
+        ctx.restore();
+        ctx.fillStyle = `rgba(5,5,10,${0.75 * p2})`; ctx.fillRect(W * 0.2, H * 0.32, W * 0.6, H * 0.36);
+        text(ctx, 'terms needed for useful accuracy', W / 2, H * 0.39, { size: S * 0.028, weight: 500, alpha: 0.7 * p2 });
+        // 10^8,000,000 with a raised exponent
+        ctx.save(); ctx.font = `400 ${Math.round(S * 0.1)}px ${SERIF}`; const w10 = ctx.measureText('10').width;
+        ctx.font = `400 ${Math.round(S * 0.05)}px ${SERIF}`; const wE = ctx.measureText('8,000,000').width; ctx.restore();
+        const x0 = W / 2 - (w10 + wE + S * 0.01) / 2;
+        text(ctx, '10', x0, H * 0.51, { size: S * 0.1, weight: 400, font: SERIF, align: 'left', alpha: p2 });
+        text(ctx, '8,000,000', x0 + w10 + S * 0.01, H * 0.47, { size: S * 0.05, weight: 400, font: SERIF, align: 'left', alpha: p2 });
+        text(ctx, 'a number with eight million digits', W / 2, H * 0.62, { size: S * 0.03, weight: 500, alpha: 0.85 * smooth((t - countAt - 2.5) / 0.8) });
+        text(ctx, 'estimate: D. Beloriszky, 1930', W / 2, H * 0.93, { size: S * 0.02, weight: 400, alpha: 0.5 * p2 });
+      }
+    },
+  };
+});
+</script>
+</body></html>
